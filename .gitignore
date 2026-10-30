@@ -1,0 +1,20 @@
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+.env
+.env.*
+!.env.example
+
+# Backend
+backend/bin/
+backend/tmp/
+*.test
+*.out
+
+# Admin (frontend)
+admin/node_modules/
+admin/dist/
