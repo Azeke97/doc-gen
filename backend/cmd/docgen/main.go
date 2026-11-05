@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"docgen/internal/config"
 	"docgen/internal/httpapi"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
