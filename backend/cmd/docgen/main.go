@@ -8,26 +8,31 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"docgen/internal/config"
 	"docgen/internal/httpapi"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load config", "err", err)
+		os.Exit(1)
+	}
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	slog.SetDefault(logger)
-	//slog.Info("server started", "addr", ":8080")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	serv := &http.Server{
-		Addr:              ":8080",
+		Addr:              cfg.HTTP.Addr,
 		Handler:           httpapi.NewRouter(),
-		ReadTimeout:       15 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadTimeout:       cfg.HTTP.ReadTimeout,
+		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
+		WriteTimeout:      cfg.HTTP.WriteTimeout,
+		IdleTimeout:       cfg.HTTP.IdleTimeout,
 	}
 
 	errCh := make(chan error, 1)
@@ -48,7 +53,7 @@ func main() {
 		slog.Info("shutdown signal received")
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 	defer shutdownCancel()
 	if err := serv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("server shutdown failed", "err", err)
