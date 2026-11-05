@@ -1,0 +1,90 @@
+# Переменные из .env (direnv в make не работает).
+# "-" — не падать, если .env нет; export — передать переменные во все команды.
+-include .env
+export
+
+BACKEND := backend
+
+.DEFAULT_GOAL := help
+
+## ---------- Общее ----------
+
+.PHONY: help
+help: ## Показать список команд
+	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+
+## ---------- Инфраструктура (Docker) ----------
+
+.PHONY: up
+up: ## Поднять postgres, minio, gotenberg
+	docker compose up -d
+
+.PHONY: down
+down: ## Остановить контейнеры (данные в томах сохраняются)
+	docker compose down
+
+.PHONY: ps
+ps: ## Статус контейнеров
+	docker compose ps
+
+.PHONY: logs
+logs: ## Логи контейнеров (make logs s=postgres — одного сервиса)
+	docker compose logs -f $(s)
+
+## ---------- Сервис ----------
+
+.PHONY: run
+run: ## Запустить сервис docgen
+	cd $(BACKEND) && go run ./cmd/docgen
+
+.PHONY: build
+build: ## Собрать бинарники в backend/bin
+	cd $(BACKEND) && go build -o bin/docgen ./cmd/docgen && go build -o bin/migrate ./cmd/migrate
+
+## ---------- База данных ----------
+
+.PHONY: migrate-up
+migrate-up: ## Применить все новые миграции
+	cd $(BACKEND) && go run ./cmd/migrate up
+
+.PHONY: migrate-down
+migrate-down: ## Откатить последнюю миграцию
+	cd $(BACKEND) && go run ./cmd/migrate down
+
+.PHONY: migrate-redo
+migrate-redo: ## Откатить и заново применить последнюю миграцию
+	cd $(BACKEND) && go run ./cmd/migrate redo
+
+.PHONY: migrate-status
+migrate-status: ## Статус миграций
+	cd $(BACKEND) && go run ./cmd/migrate status
+
+.PHONY: migration
+migration: ## Создать миграцию: make migration name=create_templates
+	@test -n "$(name)" || (echo "usage: make migration name=create_something" && exit 1)
+	cd $(BACKEND) && goose -dir migrations -s create $(name) sql
+
+.PHONY: generate
+generate: ## Сгенерировать код sqlc
+	cd $(BACKEND) && sqlc generate
+
+## ---------- линт ----------
+
+.PHONY: fmt
+fmt: ## Отформатировать код и импорты
+	cd $(BACKEND) && golangci-lint fmt ./...
+
+.PHONY: lint
+lint: ## Запустить линтер
+	cd $(BACKEND) && golangci-lint run ./...
+
+.PHONY: test
+test: ## Запустить тесты
+	cd $(BACKEND) && go test ./...
+
+.PHONY: tidy
+tidy: ## Привести в порядок go.mod / go.sum
+	cd $(BACKEND) && go mod tidy
+
+.PHONY: check
+check: lint test ## Линтер + тесты (запускать перед коммитом)
