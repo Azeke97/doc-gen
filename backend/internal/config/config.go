@@ -18,9 +18,16 @@ type HTTPConfig struct {
 	ShutdownTimeout   time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"10s"`
 }
 
+// DBConfig содержит настройки подключения к базе данных.
+type DBConfig struct {
+	URL      string `env:"URL,required"`
+	MaxConns int32  `env:"MAX_CONNS" envDefault:"10"`
+}
+
 // Config содержит конфигурацию приложения
 type Config struct {
 	HTTP     HTTPConfig `envPrefix:"HTTP_"`
+	DB       DBConfig   `envPrefix:"DB_"`
 	LogLevel slog.Level `env:"LOG_LEVEL" envDefault:"info"`
 }
 

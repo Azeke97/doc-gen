@@ -8,9 +8,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"docgen/internal/config"
 	"docgen/internal/httpapi"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -25,6 +28,30 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	poolCfg, err := pgxpool.ParseConfig(cfg.DB.URL)
+	if err != nil {
+		slog.Error("failed to parse database config", "err", err)
+		os.Exit(1)
+	}
+	poolCfg.MaxConns = cfg.DB.MaxConns
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		slog.Error("failed to create database pool", "err", err)
+		os.Exit(1)
+	}
+
+	defer pool.Close()
+
+	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer pingCancel()
+	if err := pool.Ping(pingCtx); err != nil {
+		slog.Error("failed to ping database", "err", err)
+		os.Exit(1)
+	}
+
+	slog.Info("database connected")
 
 	serv := &http.Server{
 		Addr:              cfg.HTTP.Addr,
