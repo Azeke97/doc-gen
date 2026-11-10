@@ -1,3 +1,4 @@
+// Package apikey генерирует и хэширует API-ключи порталов.
 package apikey
 
 import (

@@ -56,9 +56,9 @@ func main() {
 	}
 
 	fmt.Printf(
-		"API key for %q (project: %s, id: %s):\n\n %s\n\nSave it now - it will net be show again",
+		"API key for %q (project: %s, id: %s):\n\n %s\n\nSave it now - it will not be shown again\n",
 		client.Name,
-		*project,
+		client.Project,
 		client.ID,
 		key,
 	)
