@@ -36,6 +36,7 @@ func requireAPIKey(store APIClientStore) func(http.Handler) http.Handler {
 				writeUnauthorized(w, r)
 				return
 			}
+
 			client, err := store.GetActiveAPIClientByKeyHash(r.Context(), apikey.Hash(key))
 			if errors.Is(err, pgx.ErrNoRows) {
 				writeUnauthorized(w, r)
@@ -46,6 +47,7 @@ func requireAPIKey(store APIClientStore) func(http.Handler) http.Handler {
 				writeError(w, r, http.StatusInternalServerError, "internal", "internal server error")
 				return
 			}
+
 			ctx := context.WithValue(r.Context(), clientCtxKey, client)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

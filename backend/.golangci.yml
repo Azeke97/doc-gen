@@ -12,9 +12,11 @@ linters:
 
 formatters:
   enable:
+    - gci
     - gofmt
-    - goimports
   settings:
-    goimports:
-      local-prefixes:
-        - docgen
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
