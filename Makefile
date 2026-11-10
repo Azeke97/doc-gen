@@ -68,6 +68,11 @@ migration: ## Создать миграцию: make migration name=create_templa
 generate: ## Сгенерировать код sqlc
 	cd $(BACKEND) && sqlc generate
 
+.PHONY: keygen
+keygen: ## Выдать API-ключ: make keygen name="Портал" project=procurement
+	@test -n "$(name)" -a -n "$(project)" || (echo 'usage: make keygen name="..." project=...' && exit 1)
+	cd $(BACKEND) && go run ./cmd/keygen -name="$(name)" -project="$(project)"
+
 ## ---------- линт ----------
 
 .PHONY: fmt
