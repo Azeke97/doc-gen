@@ -9,16 +9,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"docgen/internal/apikey"
 	"docgen/internal/config"
 	"docgen/internal/db"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
 	name := flag.String("name", "", "имя клиента для людей")
-	project := flag.String("project", "", "код проекта, к шаблонам которого ключ  дает доступ")
+	project := flag.String("project", "", "код проекта, к шаблонам которого ключ дает доступ")
 	flag.Parse()
 
 	if *name == "" || *project == "" {
@@ -49,7 +49,6 @@ func main() {
 		KeyHash:   apikey.Hash(key),
 		KeyPrefix: apikey.DisplayPrefix(key),
 	})
-
 	if err != nil {
 		slog.Error("failed to create api client", "err", err)
 		os.Exit(1)

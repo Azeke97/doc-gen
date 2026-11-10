@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"docgen/internal/config"
+	"docgen/internal/db"
 	"docgen/internal/httpapi"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -55,7 +56,7 @@ func main() {
 
 	serv := &http.Server{
 		Addr:              cfg.HTTP.Addr,
-		Handler:           httpapi.NewRouter(),
+		Handler:           httpapi.NewRouter(httpapi.Deps{APIClients: db.New(pool)}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
 		WriteTimeout:      cfg.HTTP.WriteTimeout,
