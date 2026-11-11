@@ -97,3 +97,7 @@ check: lint test ## Линтер + тесты (запускать перед к�
 .PHONY: vuln
 vuln: ## Проверить уязвимости в зависимостях и Go
 	cd $(BACKEND) && govulncheck ./...
+
+.PHONY: test-integration
+test-integration: ## Тесты с настоящими Postgres и MinIO (сначала make up)
+	cd $(BACKEND) && DOCGEN_INTEGRATION=1 go test ./...

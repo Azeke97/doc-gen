@@ -24,7 +24,7 @@ func main() {
 
 	command := os.Args[1]
 
-	cfg, err := config.Load()
+	cfg, err := config.LoadDB()
 	if err != nil {
 		slog.Error("failed to load config", "err", err)
 		os.Exit(1)
@@ -33,7 +33,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db, err := sql.Open("pgx", cfg.DB.URL)
+	db, err := sql.Open("pgx", cfg.URL)
 	if err != nil {
 		slog.Error("failed to open database connection", "err", err)
 		os.Exit(1)

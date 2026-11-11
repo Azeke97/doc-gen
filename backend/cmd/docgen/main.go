@@ -15,6 +15,7 @@ import (
 	"docgen/internal/config"
 	"docgen/internal/db"
 	"docgen/internal/httpapi"
+	"docgen/internal/storage"
 )
 
 func main() {
@@ -53,6 +54,29 @@ func main() {
 	}
 
 	slog.Info("database connected")
+
+	store, err := storage.New(storage.Config{
+		Endpoint:  cfg.S3.Endpoint,
+		AccessKey: cfg.S3.AccessKey,
+		SecretKey: cfg.S3.SecretKey,
+		UseSSL:    cfg.S3.UseSSL,
+		Region:    cfg.S3.Region,
+	})
+	if err != nil {
+		slog.Error("failed to create storage", "err", err)
+		os.Exit(1)
+	}
+
+	bucketCtx, bucketCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer bucketCancel()
+	for _, bucket := range []string{cfg.S3.TemplatesBucket, cfg.S3.DocumentsBucket} {
+		if err := store.EnsureBucket(bucketCtx, bucket); err != nil {
+			slog.Error("failed to prepare storage bucket", "bucket", bucket, "err", err)
+			os.Exit(1)
+		}
+	}
+
+	slog.Info("storage ready", "endpoint", cfg.S3.Endpoint)
 
 	serv := &http.Server{
 		Addr:              cfg.HTTP.Addr,

@@ -26,7 +26,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	cfg, err := config.Load()
+	cfg, err := config.LoadDB()
 	if err != nil {
 		slog.Error("failed to load config", "err", err)
 		os.Exit(1)
@@ -35,7 +35,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, cfg.DB.URL)
+	pool, err := pgxpool.New(ctx, cfg.URL)
 	if err != nil {
 		slog.Error("failed to create database pool", "err", err)
 		os.Exit(1)
