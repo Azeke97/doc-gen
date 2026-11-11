@@ -56,7 +56,7 @@ func main() {
 
 	serv := &http.Server{
 		Addr:              cfg.HTTP.Addr,
-		Handler:           httpapi.NewRouter(httpapi.Deps{APIClients: db.New(pool)}),
+		Handler:           httpapi.NewRouter(httpapi.Deps{Logger: logger, APIClients: db.New(pool)}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
 		WriteTimeout:      cfg.HTTP.WriteTimeout,
