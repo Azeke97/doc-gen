@@ -5,6 +5,7 @@
 package db
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,4 +19,51 @@ type APIClient struct {
 	KeyPrefix string
 	CreatedAt time.Time
 	RevokedAt *time.Time
+}
+
+type AuditLog struct {
+	ID         uuid.UUID
+	OccurredAt time.Time
+	Actor      string
+	Action     string
+	EntityType string
+	EntityID   uuid.UUID
+	Details    json.RawMessage
+}
+
+type Project struct {
+	Code      string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Template struct {
+	ID              uuid.UUID
+	Project         string
+	Code            string
+	Locale          string
+	Name            string
+	Engine          string
+	Status          string
+	RetentionDays   int32
+	ActiveVersionID *uuid.UUID
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type TemplateVersion struct {
+	ID          uuid.UUID
+	TemplateID  uuid.UUID
+	Version     int32
+	Status      string
+	FileKey     string
+	FileSha256  []byte
+	DataSchema  json.RawMessage
+	TestData    json.RawMessage
+	CreatedBy   string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	PublishedBy *string
+	PublishedAt *time.Time
 }
