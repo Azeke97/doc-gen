@@ -93,3 +93,7 @@ tidy: ## Привести в порядок go.mod / go.sum
 
 .PHONY: check
 check: lint test ## Линтер + тесты (запускать перед коммитом)
+
+.PHONY: vuln
+vuln: ## Проверить уязвимости в зависимостях и Go
+	cd $(BACKEND) && govulncheck ./...
