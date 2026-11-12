@@ -16,6 +16,7 @@ type Deps struct {
 	AdminAuth       AdminAuthStore
 	AdminSessionTTL time.Duration
 	Projects        ProjectStore
+	Templates       TemplateService
 }
 
 // NewRouter собирает все маршруты API.
@@ -49,6 +50,8 @@ func NewRouter(deps Deps) http.Handler {
 
 			r.Post("/projects", createProjectHandler(deps.Projects))
 			r.Get("/projects", listProjectsHandler(deps.Projects))
+			r.Post("/templates", createTemplateHandler(deps.Templates))
+			r.Get("/templates", listTemplatesHandler(deps.Templates))
 		})
 	})
 

@@ -158,6 +158,87 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/v1/templates:
+    get:
+      summary: Список шаблонов
+      tags: [ admin ]
+      security:
+        - AdminSession: [ ]
+      parameters:
+        - name: project
+          in: query
+          required: false
+          description: Код проекта; без параметра — все шаблоны
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Шаблоны
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Template"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Создать шаблон (статус draft)
+      tags: [ admin ]
+      security:
+        - AdminSession: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ project, code, locale, name, engine, retention_days ]
+              additionalProperties: false
+              properties:
+                project:
+                  type: string
+                  example: procurement
+                code:
+                  type: string
+                  pattern: "^[a-z][a-z0-9_]{1,99}$"
+                  example: opening_protocol
+                locale:
+                  type: string
+                  enum: [ ru, kk, bilingual ]
+                name:
+                  type: string
+                  example: Протокол вскрытия
+                engine:
+                  type: string
+                  enum: [ docx, html ]
+                retention_days:
+                  type: integer
+                  minimum: 1
+                  example: 1825
+      responses:
+        "201":
+          description: Шаблон создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Шаблон с таким проектом, кодом и языком уже есть
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Проект не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 security:
   - ApiKeyAuth: []
 
@@ -195,6 +276,40 @@ components:
         name:
           type: string
         created_at:
+          type: string
+          format: date-time
+
+    Template:
+      type: object
+      required: [id, project, code, locale, name, engine, status, retention_days, active_version_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project:
+          type: string
+        code:
+          type: string
+        locale:
+          type: string
+          enum: [ru, kk, bilingual]
+        name:
+          type: string
+        engine:
+          type: string
+          enum: [docx, html]
+        status:
+          type: string
+          enum: [draft, active, archived]
+        retention_days:
+          type: integer
+        active_version_id:
+          type: [string, "null"]
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 

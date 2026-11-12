@@ -14,7 +14,7 @@ const SessionPrefix = "dgs_"
 
 const (
 	sessionTokenBytes = 32
-	passwordBytes     = 18
+	passwordBytes     = 18 // 24 символа base64url
 )
 
 // GenerateSessionToken создаёт случайный токен сессии.

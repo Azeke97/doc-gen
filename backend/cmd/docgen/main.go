@@ -16,6 +16,7 @@ import (
 	"docgen/internal/db"
 	"docgen/internal/httpapi"
 	"docgen/internal/storage"
+	"docgen/internal/templates"
 )
 
 func main() {
@@ -88,6 +89,7 @@ func main() {
 			AdminAuth:       queries,
 			AdminSessionTTL: cfg.Admin.SessionTTL,
 			Projects:        queries,
+			Templates:       templates.NewService(pool),
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,

@@ -26,7 +26,7 @@ func main() {
 	*email = strings.ToLower(strings.TrimSpace(*email))
 	if *email == "" || *name == "" {
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	cfg, err := config.LoadDB()
@@ -58,7 +58,7 @@ func main() {
 		PasswordHash: hash,
 	})
 	if pgerr.IsUniqueViolation(err) {
-		fmt.Fprintf(os.Stderr, "admin %s already exists\n", *email)
+		fmt.Fprintf(os.Stderr, "admin %q already exists\n", *email)
 		os.Exit(1)
 	}
 	if err != nil {
