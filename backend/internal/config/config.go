@@ -35,12 +35,18 @@ type S3Config struct {
 	DocumentsBucket string `env:"DOCUMENTS_BUCKET" envDefault:"docgen-documents"`
 }
 
+// AdminConfig содержит настройки входа в админку.
+type AdminConfig struct {
+	SessionTTL time.Duration `env:"SESSION_TTL" envDefault:"12h"`
+}
+
 // Config содержит конфигурацию приложения
 type Config struct {
-	HTTP     HTTPConfig `envPrefix:"HTTP_"`
-	DB       DBConfig   `envPrefix:"DB_"`
-	S3       S3Config   `envPrefix:"S3_"`
-	LogLevel slog.Level `env:"LOG_LEVEL" envDefault:"info"`
+	HTTP     HTTPConfig  `envPrefix:"HTTP_"`
+	DB       DBConfig    `envPrefix:"DB_"`
+	S3       S3Config    `envPrefix:"S3_"`
+	Admin    AdminConfig `envPrefix:"ADMIN_"`
+	LogLevel slog.Level  `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 // Load читает конфигурацию из переменных окружения

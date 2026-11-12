@@ -21,6 +21,24 @@ type APIClient struct {
 	RevokedAt *time.Time
 }
 
+type AdminSession struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	TokenHash []byte
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+type AdminUser struct {
+	ID           uuid.UUID
+	Email        string
+	Name         string
+	PasswordHash string
+	DisabledAt   *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type AuditLog struct {
 	ID         uuid.UUID
 	OccurredAt time.Time

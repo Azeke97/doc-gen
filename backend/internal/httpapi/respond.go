@@ -6,6 +6,9 @@ import (
 	"net/http"
 )
 
+// maxJSONBody — предельный размер JSON-тела запроса.
+const maxJSONBody = 1 << 20 // 1 МиБ
+
 // errorResponse — единый формат ошибки во всех ответах API.
 type errorResponse struct {
 	Error errorBody `json:"error"`
@@ -34,4 +37,22 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 			Message: message,
 		},
 	})
+}
+
+// decodeJSON читает JSON-тело запроса в v. Неизвестные поля и лишние данные — ошибка.
+// При ошибке сам отвечает клиенту 400 и возвращает false.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONBody))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(v); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "request body is not valid JSON: "+err.Error())
+		return false
+	}
+	if dec.More() {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "request body must contain a single JSON object")
+		return false
+	}
+
+	return true
 }

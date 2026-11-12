@@ -73,6 +73,11 @@ keygen: ## Выдать API-ключ: make keygen name="Портал" project=pr
 	@test -n "$(name)" -a -n "$(project)" || (echo 'usage: make keygen name="..." project=...' && exit 1)
 	cd $(BACKEND) && go run ./cmd/keygen -name="$(name)" -project="$(project)"
 
+.PHONY: admin-add
+admin-add: ## Создать администратора: make admin-add email=me@example.com name="Имя"
+	@test -n "$(email)" -a -n "$(name)" || (echo 'usage: make admin-add email=... name="..."' && exit 1)
+	cd $(BACKEND) && go run ./cmd/adminadd -email="$(email)" -name="$(name)"
+
 ## ---------- линт ----------
 
 .PHONY: fmt

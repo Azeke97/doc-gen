@@ -14,6 +14,7 @@ import (
 	"docgen/internal/apikey"
 	"docgen/internal/config"
 	"docgen/internal/db"
+	"docgen/internal/pgerr"
 )
 
 func main() {
@@ -49,6 +50,10 @@ func main() {
 		KeyHash:   apikey.Hash(key),
 		KeyPrefix: apikey.DisplayPrefix(key),
 	})
+	if pgerr.IsForeignKeyViolation(err) {
+		fmt.Fprintf(os.Stderr, "project %q does not exist, create it first\n", *project)
+		os.Exit(1)
+	}
 	if err != nil {
 		slog.Error("failed to create api client", "err", err)
 		os.Exit(1)

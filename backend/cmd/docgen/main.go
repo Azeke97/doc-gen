@@ -78,9 +78,17 @@ func main() {
 
 	slog.Info("storage ready", "endpoint", cfg.S3.Endpoint)
 
+	queries := db.New(pool)
+
 	serv := &http.Server{
-		Addr:              cfg.HTTP.Addr,
-		Handler:           httpapi.NewRouter(httpapi.Deps{Logger: logger, APIClients: db.New(pool)}),
+		Addr: cfg.HTTP.Addr,
+		Handler: httpapi.NewRouter(httpapi.Deps{
+			Logger:          logger,
+			APIClients:      queries,
+			AdminAuth:       queries,
+			AdminSessionTTL: cfg.Admin.SessionTTL,
+			Projects:        queries,
+		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
 		WriteTimeout:      cfg.HTTP.WriteTimeout,
