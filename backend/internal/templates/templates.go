@@ -12,16 +12,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"docgen/internal/db"
 	"docgen/internal/pgerr"
 	"docgen/internal/storage"
 )
 
+// Действия в журнале аудита. Прошедшее время: журнал фиксирует то, что уже произошло.
 const (
-	ActionTemplateCreated = "template.created"
-	ActionVersionUploaded = "template_version.uploaded"
+	ActionTemplateCreated   = "template.created"
+	ActionTemplateActivated = "template.activated"
+	ActionTemplateArchived  = "template.archived"
+	ActionVersionUploaded   = "template_version.uploaded"
+	ActionVersionPublished  = "template_version.published"
 )
 
 // Типы сущностей в журнале аудита.
@@ -36,6 +39,10 @@ var (
 	ErrTemplateExists   = errors.New("template with this project, code and locale already exists")
 	ErrTemplateNotFound = errors.New("template not found")
 	ErrTemplateArchived = errors.New("template is archived")
+
+	ErrVersionNotFound         = errors.New("template version not found")
+	ErrVersionAlreadyPublished = errors.New("template version is already published")
+	ErrVersionNotPublished     = errors.New("template version is not published")
 )
 
 // ValidationError — данные не прошли проверку; Field — какое поле виновато.
@@ -56,16 +63,23 @@ var (
 	engines = []string{"docx", "html"}
 )
 
+// DB — то, через что сервис ходит в базу: умеет выполнять запросы и открывать транзакции.
+// Ему соответствуют и *pgxpool.Pool (в работе), и pgx.Tx (в тестах: всё откатывается в конце).
+type DB interface {
+	db.DBTX
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 // Service выполняет операции с шаблонами. Каждая операция, меняющая данные,
 // пишет запись в audit_log в той же транзакции.
 type Service struct {
-	pool   *pgxpool.Pool
+	pool   DB
 	files  *storage.Store
 	bucket string
 }
 
-// NewService создаёт сервис шаблонов.
-func NewService(pool *pgxpool.Pool, files *storage.Store, bucket string) *Service {
+// NewService создаёт сервис шаблонов. bucket — бакет, где лежат файлы шаблонов.
+func NewService(pool DB, files *storage.Store, bucket string) *Service {
 	return &Service{pool: pool, files: files, bucket: bucket}
 }
 

@@ -28,3 +28,14 @@ RETURNING *;
 SELECT * FROM template_versions
 WHERE template_id = $1
 ORDER BY version DESC;
+
+-- name: GetTemplateVersion :one
+SELECT * FROM template_versions
+WHERE id = $1;
+
+-- name: PublishVersion :one
+-- Публикуется только черновик: если версия уже опубликована, строк не будет.
+UPDATE template_versions
+SET status = 'published', published_by = $2, published_at = now()
+WHERE id = $1 AND status = 'draft'
+RETURNING *;

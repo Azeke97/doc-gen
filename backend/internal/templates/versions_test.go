@@ -16,7 +16,7 @@ var (
 )
 
 func TestUploadVersionLifecycle(t *testing.T) {
-	svc, pool, project := newTestService(t)
+	svc, tx, project := newTestService(t)
 	ctx := t.Context()
 
 	tmpl, err := svc.Create(ctx, "alice", validParams(project))
@@ -63,7 +63,7 @@ func TestUploadVersionLifecycle(t *testing.T) {
 	}
 
 	var audits int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM audit_log WHERE entity_id = $1 AND action = $2",
+	if err := tx.QueryRow(ctx, "SELECT count(*) FROM audit_log WHERE entity_id = $1 AND action = $2",
 		v1.ID, ActionVersionUploaded).Scan(&audits); err != nil {
 		t.Fatalf("count audit: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestUploadVersionLifecycle(t *testing.T) {
 }
 
 func TestUploadVersionErrors(t *testing.T) {
-	svc, pool, project := newTestService(t)
+	svc, tx, project := newTestService(t)
 	ctx := t.Context()
 
 	tmpl, err := svc.Create(ctx, "alice", validParams(project))
@@ -92,7 +92,7 @@ func TestUploadVersionErrors(t *testing.T) {
 		t.Errorf("broken template: err = %v, want ValidationError on file", err)
 	}
 
-	if _, err := pool.Exec(ctx, "UPDATE templates SET status = 'archived' WHERE id = $1", tmpl.ID); err != nil {
+	if _, err := tx.Exec(ctx, "UPDATE templates SET status = 'archived' WHERE id = $1", tmpl.ID); err != nil {
 		t.Fatalf("archive: %v", err)
 	}
 	_, _, err = svc.UploadVersion(ctx, "alice", tmpl.ID, UploadParams{File: testHTML, Schema: testSchema})

@@ -83,6 +83,32 @@ func (q *Queries) GetDraftVersion(ctx context.Context, templateID uuid.UUID) (Te
 	return i, err
 }
 
+const getTemplateVersion = `-- name: GetTemplateVersion :one
+SELECT id, template_id, version, status, file_key, file_sha256, data_schema, test_data, created_by, created_at, updated_at, published_by, published_at FROM template_versions
+WHERE id = $1
+`
+
+func (q *Queries) GetTemplateVersion(ctx context.Context, id uuid.UUID) (TemplateVersion, error) {
+	row := q.db.QueryRow(ctx, getTemplateVersion, id)
+	var i TemplateVersion
+	err := row.Scan(
+		&i.ID,
+		&i.TemplateID,
+		&i.Version,
+		&i.Status,
+		&i.FileKey,
+		&i.FileSha256,
+		&i.DataSchema,
+		&i.TestData,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedBy,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
 const listTemplateVersions = `-- name: ListTemplateVersions :many
 SELECT id, template_id, version, status, file_key, file_sha256, data_schema, test_data, created_by, created_at, updated_at, published_by, published_at FROM template_versions
 WHERE template_id = $1
@@ -160,6 +186,40 @@ func (q *Queries) NextVersionNumber(ctx context.Context, templateID uuid.UUID) (
 	var next int32
 	err := row.Scan(&next)
 	return next, err
+}
+
+const publishVersion = `-- name: PublishVersion :one
+UPDATE template_versions
+SET status = 'published', published_by = $2, published_at = now()
+WHERE id = $1 AND status = 'draft'
+RETURNING id, template_id, version, status, file_key, file_sha256, data_schema, test_data, created_by, created_at, updated_at, published_by, published_at
+`
+
+type PublishVersionParams struct {
+	ID          uuid.UUID
+	PublishedBy *string
+}
+
+// Публикуется только черновик: если версия уже опубликована, строк не будет.
+func (q *Queries) PublishVersion(ctx context.Context, arg PublishVersionParams) (TemplateVersion, error) {
+	row := q.db.QueryRow(ctx, publishVersion, arg.ID, arg.PublishedBy)
+	var i TemplateVersion
+	err := row.Scan(
+		&i.ID,
+		&i.TemplateID,
+		&i.Version,
+		&i.Status,
+		&i.FileKey,
+		&i.FileSha256,
+		&i.DataSchema,
+		&i.TestData,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedBy,
+		&i.PublishedAt,
+	)
+	return i, err
 }
 
 const replaceDraftVersion = `-- name: ReplaceDraftVersion :one

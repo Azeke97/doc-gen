@@ -16,9 +16,12 @@ import (
 	"docgen/internal/storage"
 )
 
-// newTestService подключается к настоящей БД из DB_URL. Только с DOCGEN_INTEGRATION=1.
-// Для каждого теста создаётся свой проект, чтобы тесты не мешали друг другу и данным разработчика.
-func newTestService(t *testing.T) (*Service, *pgxpool.Pool, string) {
+// newTestService подключается к настоящим БД (DB_URL) и хранилищу (S3_*). Только с DOCGEN_INTEGRATION=1.
+//
+// Всё, что делает тест, выполняется внутри одной транзакции, которая в конце откатывается:
+// в базе не остаётся ничего, даже опубликованных версий, которые иначе удалить нельзя.
+// Транзакции самого сервиса внутри неё становятся точками сохранения (SAVEPOINT).
+func newTestService(t *testing.T) (*Service, pgx.Tx, string) {
 	t.Helper()
 
 	if os.Getenv("DOCGEN_INTEGRATION") != "1" {
@@ -47,43 +50,36 @@ func newTestService(t *testing.T) (*Service, *pgxpool.Pool, string) {
 	}
 
 	project := fmt.Sprintf("test_%d", time.Now().UnixNano())
-	if _, err := db.New(pool).CreateProject(t.Context(), db.CreateProjectParams{Code: project, Name: "Test"}); err != nil {
-		t.Fatalf("create project: %v", err)
+
+	tx, err := pool.Begin(t.Context())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
 	}
 
-	// После теста убираем всё, что он создал: файлы в хранилище, записи журнала, версии, шаблоны, проект.
-	// Тесты не публикуют версии, поэтому черновики удаляются (опубликованные защищает триггер).
+	// Файлы в хранилище транзакция не откатит — удаляем их сами, потом откатываем базу.
 	t.Cleanup(func() {
 		ctx := context.Background()
 
-		rows, err := pool.Query(ctx,
+		// Только файлы этого теста: в той же базе лежат и настоящие шаблоны разработчика.
+		rows, err := tx.Query(ctx,
 			"SELECT v.file_key FROM template_versions v JOIN templates t ON t.id = v.template_id WHERE t.project = $1", project)
-		if err != nil {
-			t.Errorf("cleanup: %v", err)
-			return
-		}
-		keys, err := pgx.CollectRows(rows, pgx.RowTo[string])
-		if err != nil {
-			t.Errorf("cleanup: %v", err)
-		}
-		for _, key := range keys {
-			_ = files.Delete(ctx, bucket, key)
+		if err == nil {
+			keys, _ := pgx.CollectRows(rows, pgx.RowTo[string])
+			for _, key := range keys {
+				_ = files.Delete(ctx, bucket, key)
+			}
 		}
 
-		for _, q := range []string{
-			"DELETE FROM audit_log WHERE entity_id IN (SELECT id FROM templates WHERE project = $1)",
-			"DELETE FROM audit_log WHERE entity_id IN (SELECT v.id FROM template_versions v JOIN templates t ON t.id = v.template_id WHERE t.project = $1)",
-			"DELETE FROM template_versions WHERE template_id IN (SELECT id FROM templates WHERE project = $1)",
-			"DELETE FROM templates WHERE project = $1",
-			"DELETE FROM projects WHERE code = $1",
-		} {
-			if _, err := pool.Exec(ctx, q, project); err != nil {
-				t.Errorf("cleanup: %v", err)
-			}
+		if err := tx.Rollback(ctx); err != nil {
+			t.Errorf("rollback: %v", err)
 		}
 	})
 
-	return NewService(pool, files, bucket), pool, project
+	if _, err := db.New(tx).CreateProject(t.Context(), db.CreateProjectParams{Code: project, Name: "Test"}); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	return NewService(tx, files, bucket), tx, project
 }
 
 func validParams(project string) CreateParams {
@@ -98,7 +94,7 @@ func validParams(project string) CreateParams {
 }
 
 func TestCreateWritesAudit(t *testing.T) {
-	svc, pool, project := newTestService(t)
+	svc, tx, project := newTestService(t)
 
 	tmpl, err := svc.Create(t.Context(), "alice@example.com", validParams(project))
 	if err != nil {
@@ -110,7 +106,7 @@ func TestCreateWritesAudit(t *testing.T) {
 
 	var actor, action string
 	var details json.RawMessage
-	err = pool.QueryRow(t.Context(),
+	err = tx.QueryRow(t.Context(),
 		"SELECT actor, action, details FROM audit_log WHERE entity_id = $1", tmpl.ID,
 	).Scan(&actor, &action, &details)
 	if err != nil {

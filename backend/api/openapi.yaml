@@ -316,6 +316,129 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /admin/v1/versions/{id}/publish:
+    post:
+      summary: Опубликовать черновик версии (после этого версия неизменяема)
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID версии
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Версия опубликована
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateVersion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Версия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Версия уже опубликована или шаблон в архиве
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/v1/templates/{id}/activate:
+    post:
+      summary: Сделать опубликованную версию активной (так же выполняется откат)
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID шаблона
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version_id]
+              additionalProperties: false
+              properties:
+                version_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Версия активирована, шаблон в статусе active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Шаблон или версия не найдены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Версия не опубликована или шаблон в архиве
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/v1/templates/{id}/archive:
+    post:
+      summary: Перевести шаблон в архив
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID шаблона
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Шаблон в архиве
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Шаблон не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Шаблон уже в архиве
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 security:
   - ApiKeyAuth: []
 

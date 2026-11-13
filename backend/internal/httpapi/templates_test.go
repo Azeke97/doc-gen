@@ -20,6 +20,7 @@ type fakeTemplateService struct {
 	gotProject string
 	gotUpload  templates.UploadParams
 	created    bool
+	gotIDs     []uuid.UUID
 }
 
 func (f *fakeTemplateService) Create(_ context.Context, actor string, p templates.CreateParams) (db.Template, error) {
@@ -45,6 +46,21 @@ func (f *fakeTemplateService) UploadVersion(_ context.Context, actor string, tem
 
 func (f *fakeTemplateService) ListVersions(_ context.Context, _ uuid.UUID) ([]db.TemplateVersion, error) {
 	return nil, f.err
+}
+
+func (f *fakeTemplateService) Publish(_ context.Context, actor string, versionID uuid.UUID) (db.TemplateVersion, error) {
+	f.gotActor, f.gotIDs = actor, []uuid.UUID{versionID}
+	return db.TemplateVersion{ID: versionID, Status: "published", PublishedBy: &actor}, f.err
+}
+
+func (f *fakeTemplateService) Activate(_ context.Context, actor string, templateID, versionID uuid.UUID) (db.Template, error) {
+	f.gotActor, f.gotIDs = actor, []uuid.UUID{templateID, versionID}
+	return db.Template{ID: templateID, Status: "active", ActiveVersionID: &versionID}, f.err
+}
+
+func (f *fakeTemplateService) Archive(_ context.Context, actor string, templateID uuid.UUID) (db.Template, error) {
+	f.gotActor, f.gotIDs = actor, []uuid.UUID{templateID}
+	return db.Template{ID: templateID, Status: "archived"}, f.err
 }
 
 func TestCreateTemplate(t *testing.T) {

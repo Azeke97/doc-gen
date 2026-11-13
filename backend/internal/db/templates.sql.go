@@ -7,7 +7,35 @@ package db
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
+
+const archiveTemplate = `-- name: ArchiveTemplate :one
+UPDATE templates
+SET status = 'archived'
+WHERE id = $1
+RETURNING id, project, code, locale, name, engine, status, retention_days, active_version_id, created_at, updated_at
+`
+
+func (q *Queries) ArchiveTemplate(ctx context.Context, id uuid.UUID) (Template, error) {
+	row := q.db.QueryRow(ctx, archiveTemplate, id)
+	var i Template
+	err := row.Scan(
+		&i.ID,
+		&i.Project,
+		&i.Code,
+		&i.Locale,
+		&i.Name,
+		&i.Engine,
+		&i.Status,
+		&i.RetentionDays,
+		&i.ActiveVersionID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
 
 const createTemplate = `-- name: CreateTemplate :one
 INSERT INTO templates (project, code, locale, name, engine, retention_days)
@@ -87,4 +115,35 @@ func (q *Queries) ListTemplates(ctx context.Context, project *string) ([]Templat
 		return nil, err
 	}
 	return items, nil
+}
+
+const setActiveVersion = `-- name: SetActiveVersion :one
+UPDATE templates
+SET active_version_id = $2, status = 'active'
+WHERE id = $1
+RETURNING id, project, code, locale, name, engine, status, retention_days, active_version_id, created_at, updated_at
+`
+
+type SetActiveVersionParams struct {
+	ID              uuid.UUID
+	ActiveVersionID *uuid.UUID
+}
+
+func (q *Queries) SetActiveVersion(ctx context.Context, arg SetActiveVersionParams) (Template, error) {
+	row := q.db.QueryRow(ctx, setActiveVersion, arg.ID, arg.ActiveVersionID)
+	var i Template
+	err := row.Scan(
+		&i.ID,
+		&i.Project,
+		&i.Code,
+		&i.Locale,
+		&i.Name,
+		&i.Engine,
+		&i.Status,
+		&i.RetentionDays,
+		&i.ActiveVersionID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

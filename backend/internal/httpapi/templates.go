@@ -19,6 +19,9 @@ type TemplateService interface {
 	List(ctx context.Context, project string) ([]db.Template, error)
 	UploadVersion(ctx context.Context, actor string, templateID uuid.UUID, p templates.UploadParams) (db.TemplateVersion, bool, error)
 	ListVersions(ctx context.Context, templateID uuid.UUID) ([]db.TemplateVersion, error)
+	Publish(ctx context.Context, actor string, versionID uuid.UUID) (db.TemplateVersion, error)
+	Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID) (db.Template, error)
+	Archive(ctx context.Context, actor string, templateID uuid.UUID) (db.Template, error)
 }
 
 type createTemplateRequest struct {
@@ -110,6 +113,12 @@ func writeTemplateError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusNotFound, "template_not_found", templates.ErrTemplateNotFound.Error())
 	case errors.Is(err, templates.ErrTemplateArchived):
 		writeError(w, r, http.StatusConflict, "template_archived", templates.ErrTemplateArchived.Error())
+	case errors.Is(err, templates.ErrVersionNotFound):
+		writeError(w, r, http.StatusNotFound, "version_not_found", templates.ErrVersionNotFound.Error())
+	case errors.Is(err, templates.ErrVersionAlreadyPublished):
+		writeError(w, r, http.StatusConflict, "version_already_published", templates.ErrVersionAlreadyPublished.Error())
+	case errors.Is(err, templates.ErrVersionNotPublished):
+		writeError(w, r, http.StatusConflict, "version_not_published", templates.ErrVersionNotPublished.Error())
 	default:
 		slog.ErrorContext(r.Context(), "template operation", "err", err)
 		writeError(w, r, http.StatusInternalServerError, "internal", "internal server error")
