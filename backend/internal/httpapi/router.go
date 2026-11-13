@@ -52,6 +52,8 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/projects", listProjectsHandler(deps.Projects))
 			r.Post("/templates", createTemplateHandler(deps.Templates))
 			r.Get("/templates", listTemplatesHandler(deps.Templates))
+			r.Post("/templates/{id}/versions", uploadVersionHandler(deps.Templates))
+			r.Get("/templates/{id}/versions", listVersionsHandler(deps.Templates))
 		})
 	})
 

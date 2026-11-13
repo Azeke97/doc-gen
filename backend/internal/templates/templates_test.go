@@ -9,9 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"docgen/internal/db"
+	"docgen/internal/storage"
 )
 
 // newTestService подключается к настоящей БД из DB_URL. Только с DOCGEN_INTEGRATION=1.
@@ -29,16 +31,49 @@ func newTestService(t *testing.T) (*Service, *pgxpool.Pool, string) {
 	}
 	t.Cleanup(pool.Close)
 
+	files, err := storage.New(storage.Config{
+		Endpoint:  os.Getenv("S3_ENDPOINT"),
+		AccessKey: os.Getenv("S3_ACCESS_KEY"),
+		SecretKey: os.Getenv("S3_SECRET_KEY"),
+		UseSSL:    os.Getenv("S3_USE_SSL") == "true",
+		Region:    os.Getenv("S3_REGION"),
+	})
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	bucket := os.Getenv("S3_TEMPLATES_BUCKET")
+	if err := files.EnsureBucket(t.Context(), bucket); err != nil {
+		t.Fatalf("bucket: %v", err)
+	}
+
 	project := fmt.Sprintf("test_%d", time.Now().UnixNano())
 	if _, err := db.New(pool).CreateProject(t.Context(), db.CreateProjectParams{Code: project, Name: "Test"}); err != nil {
 		t.Fatalf("create project: %v", err)
 	}
 
-	// После теста убираем всё, что он создал. Версий тесты не создают, поэтому шаблоны удаляются.
+	// После теста убираем всё, что он создал: файлы в хранилище, записи журнала, версии, шаблоны, проект.
+	// Тесты не публикуют версии, поэтому черновики удаляются (опубликованные защищает триггер).
 	t.Cleanup(func() {
 		ctx := context.Background()
+
+		rows, err := pool.Query(ctx,
+			"SELECT v.file_key FROM template_versions v JOIN templates t ON t.id = v.template_id WHERE t.project = $1", project)
+		if err != nil {
+			t.Errorf("cleanup: %v", err)
+			return
+		}
+		keys, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+		for _, key := range keys {
+			_ = files.Delete(ctx, bucket, key)
+		}
+
 		for _, q := range []string{
 			"DELETE FROM audit_log WHERE entity_id IN (SELECT id FROM templates WHERE project = $1)",
+			"DELETE FROM audit_log WHERE entity_id IN (SELECT v.id FROM template_versions v JOIN templates t ON t.id = v.template_id WHERE t.project = $1)",
+			"DELETE FROM template_versions WHERE template_id IN (SELECT id FROM templates WHERE project = $1)",
 			"DELETE FROM templates WHERE project = $1",
 			"DELETE FROM projects WHERE code = $1",
 		} {
@@ -48,7 +83,7 @@ func newTestService(t *testing.T) (*Service, *pgxpool.Pool, string) {
 		}
 	})
 
-	return NewService(pool), pool, project
+	return NewService(pool, files, bucket), pool, project
 }
 
 func validParams(project string) CreateParams {

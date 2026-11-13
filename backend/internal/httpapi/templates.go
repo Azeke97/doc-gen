@@ -17,6 +17,8 @@ import (
 type TemplateService interface {
 	Create(ctx context.Context, actor string, p templates.CreateParams) (db.Template, error)
 	List(ctx context.Context, project string) ([]db.Template, error)
+	UploadVersion(ctx context.Context, actor string, templateID uuid.UUID, p templates.UploadParams) (db.TemplateVersion, bool, error)
+	ListVersions(ctx context.Context, templateID uuid.UUID) ([]db.TemplateVersion, error)
 }
 
 type createTemplateRequest struct {
@@ -104,6 +106,10 @@ func writeTemplateError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusUnprocessableEntity, "project_not_found", err.Error())
 	case errors.Is(err, templates.ErrTemplateExists):
 		writeError(w, r, http.StatusConflict, "template_exists", err.Error())
+	case errors.Is(err, templates.ErrTemplateNotFound):
+		writeError(w, r, http.StatusNotFound, "template_not_found", templates.ErrTemplateNotFound.Error())
+	case errors.Is(err, templates.ErrTemplateArchived):
+		writeError(w, r, http.StatusConflict, "template_archived", templates.ErrTemplateArchived.Error())
 	default:
 		slog.ErrorContext(r.Context(), "template operation", "err", err)
 		writeError(w, r, http.StatusInternalServerError, "internal", "internal server error")

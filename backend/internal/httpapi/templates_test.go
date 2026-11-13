@@ -18,6 +18,8 @@ type fakeTemplateService struct {
 	gotActor   string
 	gotParams  templates.CreateParams
 	gotProject string
+	gotUpload  templates.UploadParams
+	created    bool
 }
 
 func (f *fakeTemplateService) Create(_ context.Context, actor string, p templates.CreateParams) (db.Template, error) {
@@ -30,6 +32,18 @@ func (f *fakeTemplateService) Create(_ context.Context, actor string, p template
 
 func (f *fakeTemplateService) List(_ context.Context, project string) ([]db.Template, error) {
 	f.gotProject = project
+	return nil, f.err
+}
+
+func (f *fakeTemplateService) UploadVersion(_ context.Context, actor string, templateID uuid.UUID, p templates.UploadParams) (db.TemplateVersion, bool, error) {
+	f.gotActor, f.gotUpload = actor, p
+	if f.err != nil {
+		return db.TemplateVersion{}, false, f.err
+	}
+	return db.TemplateVersion{ID: uuid.New(), TemplateID: templateID, Version: 1, Status: "draft"}, f.created, nil
+}
+
+func (f *fakeTemplateService) ListVersions(_ context.Context, _ uuid.UUID) ([]db.TemplateVersion, error) {
 	return nil, f.err
 }
 

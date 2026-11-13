@@ -239,6 +239,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /admin/v1/templates/{id}/versions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID шаблона
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Версии шаблона (новые первыми)
+      tags: [ admin ]
+      security:
+        - AdminSession: [ ]
+      responses:
+        "200":
+          description: Версии
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemplateVersion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Загрузить версию (новый черновик или замена существующего)
+      tags: [ admin ]
+      security:
+        - AdminSession: [ ]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ file, schema ]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Файл шаблона (.html или .docx), до 10 МиБ
+                schema:
+                  type: string
+                  description: JSON Schema данных шаблона (JSON-объект)
+                test_data:
+                  type: string
+                  description: Тестовые данные для предпросмотра (JSON), необязательно
+      responses:
+        "201":
+          description: Создан новый черновик
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateVersion"
+        "200":
+          description: Существующий черновик заменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateVersion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Шаблон не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Шаблон в архиве
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 security:
   - ApiKeyAuth: []
 
@@ -311,6 +388,41 @@ components:
           format: date-time
         updated_at:
           type: string
+          format: date-time
+    TemplateVersion:
+      type: object
+      required: [ id, template_id, version, status, file_sha256, data_schema, test_data, created_by, created_at, updated_at, published_by, published_at ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [ draft, published ]
+        file_sha256:
+          type: string
+          description: SHA-256 файла в hex
+        data_schema:
+          type: object
+        test_data:
+          type: [ object, array, string, number, boolean, "null" ]
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        published_by:
+          type: [ string, "null" ]
+        published_at:
+          type: [ string, "null" ]
           format: date-time
 
     WhoAmI:

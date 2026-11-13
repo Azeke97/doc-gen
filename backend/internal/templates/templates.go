@@ -10,17 +10,32 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"docgen/internal/db"
 	"docgen/internal/pgerr"
+	"docgen/internal/storage"
+)
+
+const (
+	ActionTemplateCreated = "template.created"
+	ActionVersionUploaded = "template_version.uploaded"
+)
+
+// Типы сущностей в журнале аудита.
+const (
+	entityTemplate        = "template"
+	entityTemplateVersion = "template_version"
 )
 
 // Ошибки, которые обработчики превращают в понятные ответы клиенту.
 var (
-	ErrProjectNotFound = errors.New("project not found")
-	ErrTemplateExists  = errors.New("template with this project, code and locale already exists")
+	ErrProjectNotFound  = errors.New("project not found")
+	ErrTemplateExists   = errors.New("template with this project, code and locale already exists")
+	ErrTemplateNotFound = errors.New("template not found")
+	ErrTemplateArchived = errors.New("template is archived")
 )
 
 // ValidationError — данные не прошли проверку; Field — какое поле виновато.
@@ -44,12 +59,14 @@ var (
 // Service выполняет операции с шаблонами. Каждая операция, меняющая данные,
 // пишет запись в audit_log в той же транзакции.
 type Service struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	files  *storage.Store
+	bucket string
 }
 
 // NewService создаёт сервис шаблонов.
-func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+func NewService(pool *pgxpool.Pool, files *storage.Store, bucket string) *Service {
+	return &Service{pool: pool, files: files, bucket: bucket}
 }
 
 // CreateParams — данные нового шаблона.
@@ -103,7 +120,7 @@ func (s *Service) Create(ctx context.Context, actor string, p CreateParams) (db.
 			return err
 		}
 
-		return writeAudit(ctx, q, actor, "template.created", tmpl, map[string]any{
+		return writeAudit(ctx, q, actor, ActionTemplateCreated, entityTemplate, tmpl.ID, map[string]any{
 			"project": tmpl.Project,
 			"code":    tmpl.Code,
 			"locale":  tmpl.Locale,
@@ -138,7 +155,7 @@ func (s *Service) List(ctx context.Context, project string) ([]db.Template, erro
 }
 
 // writeAudit пишет запись журнала о действии с шаблоном.
-func writeAudit(ctx context.Context, q *db.Queries, actor, action string, tmpl db.Template, details map[string]any) error {
+func writeAudit(ctx context.Context, q *db.Queries, actor, action, entityType string, entityID uuid.UUID, details map[string]any) error {
 	raw, err := json.Marshal(details)
 	if err != nil {
 		return fmt.Errorf("marshal audit details: %w", err)
@@ -147,8 +164,8 @@ func writeAudit(ctx context.Context, q *db.Queries, actor, action string, tmpl d
 	return q.CreateAuditEntry(ctx, db.CreateAuditEntryParams{
 		Actor:      actor,
 		Action:     action,
-		EntityType: "template",
-		EntityID:   tmpl.ID,
+		EntityType: entityType,
+		EntityID:   entityID,
 		Details:    raw,
 	})
 }

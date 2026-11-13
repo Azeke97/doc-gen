@@ -89,7 +89,7 @@ func main() {
 			AdminAuth:       queries,
 			AdminSessionTTL: cfg.Admin.SessionTTL,
 			Projects:        queries,
-			Templates:       templates.NewService(pool),
+			Templates:       templates.NewService(pool, store, cfg.S3.TemplatesBucket),
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
