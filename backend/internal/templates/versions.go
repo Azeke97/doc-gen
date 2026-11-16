@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -16,6 +15,7 @@ import (
 
 	"docgen/internal/dataschema"
 	"docgen/internal/db"
+	"docgen/internal/htmlengine"
 )
 
 // MaxFileSize — предельный размер файла шаблона.
@@ -172,13 +172,17 @@ func validateUpload(engine string, p UploadParams) error {
 
 	switch engine {
 	case "html":
-		// Проверяем, что шаблон разбирается. Когда появятся хелперы (этап 3),
-		// сюда передадим тот же набор функций, что и при генерации.
-		if _, err := template.New("check").Parse(string(p.File)); err != nil {
+		tmpl, err := htmlengine.Parse(p.File)
+		if err != nil {
 			return &ValidationError{Field: "file", Message: "invalid HTML template: " + err.Error()}
 		}
+		if len(p.TestData) > 0 {
+			if _, err := tmpl.Render(p.TestData); err != nil {
+				return &ValidationError{Field: "file", Message: "template fails on test data: " + err.Error()}
+			}
+		}
 	case "docx":
-		// DOCX — это zip-архив; полная проверка появится вместе с DOCX-движком.
+		// .docx — это zip-архив.
 		if !bytes.HasPrefix(p.File, []byte("PK\x03\x04")) {
 			return &ValidationError{Field: "file", Message: "must be a .docx file"}
 		}

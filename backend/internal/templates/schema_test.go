@@ -3,6 +3,7 @@ package templates
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -69,6 +70,15 @@ func TestUploadChecksSchema(t *testing.T) {
 				t.Errorf("field errors = %+v, want %d", vErr.Errors, tt.wantErrs)
 			}
 		})
+	}
+
+	// Данные подходят под схему, но range по строке невозможен.
+	_, _, err = svc.UploadVersion(ctx, "alice", tmpl.ID, UploadParams{
+		File: []byte(`{{range .title}}{{end}}`), Schema: testSchema, TestData: json.RawMessage(`{"title":"x"}`),
+	})
+	var vErr *ValidationError
+	if !errors.As(err, &vErr) || vErr.Field != "file" || !strings.Contains(vErr.Message, "fails on test data") {
+		t.Errorf("render with test data: err = %v, want ValidationError on file", err)
 	}
 
 	// Подходящие тестовые данные принимаются.
