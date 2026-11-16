@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"docgen/internal/dataschema"
 	"docgen/internal/db"
 	"docgen/internal/pgerr"
 	"docgen/internal/storage"
@@ -46,9 +47,12 @@ var (
 )
 
 // ValidationError — данные не прошли проверку; Field — какое поле виновато.
+// Errors — подробности по вложенным полям, если они есть (например, тестовые данные
+// не подошли под схему).
 type ValidationError struct {
 	Field   string
 	Message string
+	Errors  []dataschema.FieldError
 }
 
 func (e *ValidationError) Error() string {
@@ -153,7 +157,6 @@ func (s *Service) Create(ctx context.Context, actor string, p CreateParams) (db.
 }
 
 // List возвращает шаблоны проекта; пустой project — все шаблоны.
-
 func (s *Service) List(ctx context.Context, project string) ([]db.Template, error) {
 	var filter *string
 	if project != "" {

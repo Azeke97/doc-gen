@@ -39,3 +39,10 @@ UPDATE template_versions
 SET status = 'published', published_by = $2, published_at = now()
 WHERE id = $1 AND status = 'draft'
 RETURNING *;
+
+-- name: GetPreviousPublishedVersion :one
+-- Последняя опубликованная версия шаблона с номером меньше заданного.
+SELECT * FROM template_versions
+WHERE template_id = $1 AND status = 'published' AND version < $2
+ORDER BY version DESC
+LIMIT 1;

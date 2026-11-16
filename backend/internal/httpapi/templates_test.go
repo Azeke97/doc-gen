@@ -21,6 +21,8 @@ type fakeTemplateService struct {
 	gotUpload  templates.UploadParams
 	created    bool
 	gotIDs     []uuid.UUID
+	gotOpts    templates.PublishOptions
+	diff       templates.VersionDiff
 }
 
 func (f *fakeTemplateService) Create(_ context.Context, actor string, p templates.CreateParams) (db.Template, error) {
@@ -48,9 +50,14 @@ func (f *fakeTemplateService) ListVersions(_ context.Context, _ uuid.UUID) ([]db
 	return nil, f.err
 }
 
-func (f *fakeTemplateService) Publish(_ context.Context, actor string, versionID uuid.UUID) (db.TemplateVersion, error) {
-	f.gotActor, f.gotIDs = actor, []uuid.UUID{versionID}
+func (f *fakeTemplateService) Publish(_ context.Context, actor string, versionID uuid.UUID, opts templates.PublishOptions) (db.TemplateVersion, error) {
+	f.gotActor, f.gotIDs, f.gotOpts = actor, []uuid.UUID{versionID}, opts
 	return db.TemplateVersion{ID: versionID, Status: "published", PublishedBy: &actor}, f.err
+}
+
+func (f *fakeTemplateService) DiffVersion(_ context.Context, versionID uuid.UUID) (templates.VersionDiff, error) {
+	f.gotIDs = []uuid.UUID{versionID}
+	return f.diff, f.err
 }
 
 func (f *fakeTemplateService) Activate(_ context.Context, actor string, templateID, versionID uuid.UUID) (db.Template, error) {

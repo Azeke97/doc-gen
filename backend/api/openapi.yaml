@@ -34,6 +34,66 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /v1/templates:
+    get:
+      summary: Активные шаблоны проекта, которому принадлежит API-ключ
+      description: |
+        Проект определяется только по ключу. Черновики и архивные шаблоны не показываются.
+        Пустой каталог — пустой массив.
+      responses:
+        "200":
+          description: Каталог шаблонов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortalTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/templates/{code}/schema:
+    get:
+      summary: Схема данных шаблона для проверки на стороне портала
+      description: |
+        Без version — схема активной версии. Шаблоны чужих проектов, черновики и архив не находятся.
+        locale обязателен, только если у кода несколько локалей (иначе 400 invalid_locale со списком).
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          example: opening_protocol
+        - name: locale
+          in: query
+          schema:
+            type: string
+            enum: [ru, kk, bilingual]
+        - name: version
+          in: query
+          description: Номер опубликованной версии, если портал зафиксировал версию
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Схема версии
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalTemplateSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Шаблон или версия не найдены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /admin/v1/login:
     post:
       summary: Вход администратора
@@ -283,10 +343,14 @@ paths:
                   description: Файл шаблона (.html или .docx), до 10 МиБ
                 schema:
                   type: string
-                  description: JSON Schema данных шаблона (JSON-объект)
+                  description: |
+                    JSON Schema данных шаблона (draft 2020-12 по умолчанию), корень — "type": "object".
+                    Внешние $ref запрещены: определения держите внутри схемы в $defs.
                 test_data:
                   type: string
-                  description: Тестовые данные для предпросмотра (JSON), необязательно
+                  description: |
+                    Тестовые данные для предпросмотра (JSON), необязательно. Должны подходить под схему,
+                    иначе 400 invalid_test_data с ошибками по полям в error.details.
       responses:
         "201":
           description: Создан новый черновик
@@ -320,6 +384,10 @@ paths:
   /admin/v1/versions/{id}/publish:
     post:
       summary: Опубликовать черновик версии (после этого версия неизменяема)
+      description: |
+        Схема сравнивается с базовой версией (активной, а если её нет — предыдущей опубликованной).
+        При ломающих изменениях ответ 409 breaking_changes с изменениями в error.details;
+        повторите запрос с confirm_breaking=true, чтобы опубликовать осознанно.
       tags: [admin]
       security:
         - AdminSession: []
@@ -331,6 +399,11 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: confirm_breaking
+          in: query
+          description: Опубликовать, несмотря на ломающие изменения схемы
+          schema:
+            type: boolean
       responses:
         "200":
           description: Версия опубликована
@@ -347,7 +420,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Версия уже опубликована или шаблон в архиве
+          description: Версия уже опубликована, шаблон в архиве или схема ломает совместимость (breaking_changes, details — SchemaDiff)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/v1/versions/{id}/diff:
+    get:
+      summary: Изменения схемы версии относительно базовой (что увидят порталы)
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID версии
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Изменения схемы
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaDiff"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Версия не найдена
           content:
             application/json:
               schema:
@@ -548,6 +651,86 @@ components:
           type: [ string, "null" ]
           format: date-time
 
+    PortalTemplate:
+      type: object
+      required: [code, locale, name, engine, active_version]
+      properties:
+        code:
+          type: string
+          example: opening_protocol
+        locale:
+          type: string
+          enum: [ru, kk, bilingual]
+        name:
+          type: string
+          example: Протокол вскрытия
+        engine:
+          type: string
+          enum: [docx, html]
+        active_version:
+          type: integer
+          description: Номер версии, по которой генерируется документ, если версия не указана
+          example: 2
+
+    PortalTemplateSchema:
+      type: object
+      required: [code, locale, version, schema]
+      properties:
+        code:
+          type: string
+          example: opening_protocol
+        locale:
+          type: string
+          enum: [ru, kk, bilingual]
+        version:
+          type: integer
+          example: 2
+        schema:
+          type: object
+          description: JSON Schema данных этой версии
+
+    SchemaDiff:
+      type: object
+      required: [base_version, breaking, changes]
+      properties:
+        base_version:
+          type: [integer, "null"]
+          description: С какой версией сравнивали; null — первая публикация
+        breaking:
+          type: boolean
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaChange"
+
+    SchemaChange:
+      type: object
+      required: [path, kind, breaking, message]
+      properties:
+        path:
+          type: string
+          description: Путь к полю, [] — элемент массива
+          example: lots[].amount
+        kind:
+          type: string
+          enum: [field_added, field_removed, became_required, type_changed, enum_narrowed]
+        breaking:
+          type: boolean
+        message:
+          type: string
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: JSON Pointer до поля в данных
+          example: /lots/0/amount
+        message:
+          type: string
+          example: got string, want number
+
     WhoAmI:
       type: object
       required: [id, name, project]
@@ -575,6 +758,15 @@ components:
               example: unauthorized
             message:
               type: string
+            details:
+              description: |
+                Подробности, если есть: массив FieldError (ошибки по полям)
+                или SchemaDiff (breaking_changes при публикации)
+              oneOf:
+                - type: array
+                  items:
+                    $ref: "#/components/schemas/FieldError"
+                - $ref: "#/components/schemas/SchemaDiff"
 
   responses:
     BadRequest:

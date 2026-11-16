@@ -17,6 +17,7 @@ type Deps struct {
 	AdminSessionTTL time.Duration
 	Projects        ProjectStore
 	Templates       TemplateService
+	PortalTemplates PortalTemplateService
 }
 
 // NewRouter собирает все маршруты API.
@@ -37,6 +38,8 @@ func NewRouter(deps Deps) http.Handler {
 		r.Use(requireAPIKey(deps.APIClients))
 
 		r.Get("/whoami", whoamiHandler)
+		r.Get("/templates", listPortalTemplatesHandler(deps.PortalTemplates))
+		r.Get("/templates/{code}/schema", portalSchemaHandler(deps.PortalTemplates))
 	})
 
 	r.Route("/admin/v1", func(r chi.Router) {
@@ -56,6 +59,7 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/templates/{id}/versions", listVersionsHandler(deps.Templates))
 			r.Post("/templates/{id}/activate", activateTemplateHandler(deps.Templates))
 			r.Post("/templates/{id}/archive", archiveTemplateHandler(deps.Templates))
+			r.Get("/versions/{id}/diff", diffVersionHandler(deps.Templates))
 			r.Post("/versions/{id}/publish", publishVersionHandler(deps.Templates))
 		})
 	})

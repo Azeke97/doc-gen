@@ -19,7 +19,8 @@ type TemplateService interface {
 	List(ctx context.Context, project string) ([]db.Template, error)
 	UploadVersion(ctx context.Context, actor string, templateID uuid.UUID, p templates.UploadParams) (db.TemplateVersion, bool, error)
 	ListVersions(ctx context.Context, templateID uuid.UUID) ([]db.TemplateVersion, error)
-	Publish(ctx context.Context, actor string, versionID uuid.UUID) (db.TemplateVersion, error)
+	Publish(ctx context.Context, actor string, versionID uuid.UUID, opts templates.PublishOptions) (db.TemplateVersion, error)
+	DiffVersion(ctx context.Context, versionID uuid.UUID) (templates.VersionDiff, error)
 	Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID) (db.Template, error)
 	Archive(ctx context.Context, actor string, templateID uuid.UUID) (db.Template, error)
 }
@@ -100,11 +101,18 @@ func listTemplatesHandler(svc TemplateService) http.HandlerFunc {
 
 // writeTemplateError переводит ошибки сервиса шаблонов в ответы API.
 func writeTemplateError(w http.ResponseWriter, r *http.Request, err error) {
-	var vErr *templates.ValidationError
+	var (
+		vErr        *templates.ValidationError
+		breakingErr *templates.BreakingChangesError
+	)
 
 	switch {
+	case errors.As(err, &vErr) && len(vErr.Errors) > 0:
+		writeErrorDetails(w, r, http.StatusBadRequest, "invalid_"+vErr.Field, vErr.Error(), vErr.Errors)
 	case errors.As(err, &vErr):
 		writeError(w, r, http.StatusBadRequest, "invalid_"+vErr.Field, vErr.Error())
+	case errors.As(err, &breakingErr):
+		writeErrorDetails(w, r, http.StatusConflict, "breaking_changes", breakingErr.Error(), toDiffResponse(breakingErr.Diff))
 	case errors.Is(err, templates.ErrProjectNotFound):
 		writeError(w, r, http.StatusUnprocessableEntity, "project_not_found", err.Error())
 	case errors.Is(err, templates.ErrTemplateExists):

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"docgen/internal/dataschema"
 	"docgen/internal/db"
 )
 
@@ -126,10 +127,23 @@ func validateUpload(engine string, p UploadParams) error {
 		return &ValidationError{Field: "file", Message: "is required"}
 	case len(p.File) > MaxFileSize:
 		return &ValidationError{Field: "file", Message: fmt.Sprintf("must not exceed %d bytes", MaxFileSize)}
-	case !isJSONObject(p.Schema):
-		return &ValidationError{Field: "schema", Message: "must be a JSON object"}
-	case len(p.TestData) > 0 && !json.Valid(p.TestData):
-		return &ValidationError{Field: "test_data", Message: "must be valid JSON"}
+	}
+
+	schema, err := dataschema.Compile(p.Schema)
+	if err != nil {
+		return &ValidationError{Field: "schema", Message: err.Error()}
+	}
+
+	// Тестовые данные нужны для предпросмотра, и они обязаны подходить под схему:
+	// иначе предпросмотр покажет то, что портал отправить не сможет.
+	if len(p.TestData) > 0 {
+		fieldErrs, err := schema.Validate(p.TestData)
+		if err != nil {
+			return &ValidationError{Field: "test_data", Message: "must be valid JSON"}
+		}
+		if len(fieldErrs) > 0 {
+			return &ValidationError{Field: "test_data", Message: "does not match schema", Errors: fieldErrs}
+		}
 	}
 
 	switch engine {
@@ -147,11 +161,6 @@ func validateUpload(engine string, p UploadParams) error {
 	}
 
 	return nil
-}
-
-func isJSONObject(raw json.RawMessage) bool {
-	var obj map[string]any
-	return json.Unmarshal(raw, &obj) == nil && obj != nil
 }
 
 // fileKey — путь файла версии в бакете: <id шаблона>/v<номер>.<расширение>.

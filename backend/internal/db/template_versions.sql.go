@@ -83,6 +83,40 @@ func (q *Queries) GetDraftVersion(ctx context.Context, templateID uuid.UUID) (Te
 	return i, err
 }
 
+const getPreviousPublishedVersion = `-- name: GetPreviousPublishedVersion :one
+SELECT id, template_id, version, status, file_key, file_sha256, data_schema, test_data, created_by, created_at, updated_at, published_by, published_at FROM template_versions
+WHERE template_id = $1 AND status = 'published' AND version < $2
+ORDER BY version DESC
+LIMIT 1
+`
+
+type GetPreviousPublishedVersionParams struct {
+	TemplateID uuid.UUID
+	Version    int32
+}
+
+// Последняя опубликованная версия шаблона с номером меньше заданного.
+func (q *Queries) GetPreviousPublishedVersion(ctx context.Context, arg GetPreviousPublishedVersionParams) (TemplateVersion, error) {
+	row := q.db.QueryRow(ctx, getPreviousPublishedVersion, arg.TemplateID, arg.Version)
+	var i TemplateVersion
+	err := row.Scan(
+		&i.ID,
+		&i.TemplateID,
+		&i.Version,
+		&i.Status,
+		&i.FileKey,
+		&i.FileSha256,
+		&i.DataSchema,
+		&i.TestData,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedBy,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
 const getTemplateVersion = `-- name: GetTemplateVersion :one
 SELECT id, template_id, version, status, file_key, file_sha256, data_schema, test_data, created_by, created_at, updated_at, published_by, published_at FROM template_versions
 WHERE id = $1

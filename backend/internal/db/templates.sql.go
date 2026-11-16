@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 )
@@ -78,6 +79,73 @@ func (q *Queries) CreateTemplate(ctx context.Context, arg CreateTemplateParams) 
 	return i, err
 }
 
+const getTemplate = `-- name: GetTemplate :one
+SELECT id, project, code, locale, name, engine, status, retention_days, active_version_id, created_at, updated_at FROM templates
+WHERE id = $1
+`
+
+func (q *Queries) GetTemplate(ctx context.Context, id uuid.UUID) (Template, error) {
+	row := q.db.QueryRow(ctx, getTemplate, id)
+	var i Template
+	err := row.Scan(
+		&i.ID,
+		&i.Project,
+		&i.Code,
+		&i.Locale,
+		&i.Name,
+		&i.Engine,
+		&i.Status,
+		&i.RetentionDays,
+		&i.ActiveVersionID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listActiveTemplatesByProject = `-- name: ListActiveTemplatesByProject :many
+SELECT t.code, t.locale, t.name, t.engine, v.version AS active_version
+FROM templates t
+JOIN template_versions v ON v.id = t.active_version_id
+WHERE t.project = $1 AND t.status = 'active'
+ORDER BY t.code, t.locale
+`
+
+type ListActiveTemplatesByProjectRow struct {
+	Code          string
+	Locale        string
+	Name          string
+	Engine        string
+	ActiveVersion int32
+}
+
+// Каталог для портала: только активные шаблоны его проекта и номер активной версии.
+func (q *Queries) ListActiveTemplatesByProject(ctx context.Context, project string) ([]ListActiveTemplatesByProjectRow, error) {
+	rows, err := q.db.Query(ctx, listActiveTemplatesByProject, project)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveTemplatesByProjectRow
+	for rows.Next() {
+		var i ListActiveTemplatesByProjectRow
+		if err := rows.Scan(
+			&i.Code,
+			&i.Locale,
+			&i.Name,
+			&i.Engine,
+			&i.ActiveVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTemplates = `-- name: ListTemplates :many
 SELECT id, project, code, locale, name, engine, status, retention_days, active_version_id, created_at, updated_at FROM templates
 WHERE $1::text IS NULL OR project = $1
@@ -106,6 +174,80 @@ func (q *Queries) ListTemplates(ctx context.Context, project *string) ([]Templat
 			&i.ActiveVersionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resolveTemplateVersion = `-- name: ResolveTemplateVersion :many
+SELECT t.id AS template_id, t.code, t.locale, t.engine, t.retention_days,
+       v.id AS version_id, v.version, v.file_key, v.data_schema
+FROM templates t
+JOIN template_versions v ON v.template_id = t.id
+WHERE t.project = $1
+  AND t.code = $2
+  AND t.status = 'active'
+  AND ($3::text IS NULL OR t.locale = $3)
+  AND v.status = 'published'
+  AND CASE
+          WHEN $4::int IS NULL THEN v.id = t.active_version_id
+          ELSE v.version = $4
+      END
+ORDER BY t.locale
+`
+
+type ResolveTemplateVersionParams struct {
+	Project string
+	Code    string
+	Locale  *string
+	Version *int32
+}
+
+type ResolveTemplateVersionRow struct {
+	TemplateID    uuid.UUID
+	Code          string
+	Locale        string
+	Engine        string
+	RetentionDays int32
+	VersionID     uuid.UUID
+	Version       int32
+	FileKey       string
+	DataSchema    json.RawMessage
+}
+
+// Версия шаблона, которую портал просит по коду: активная или конкретная опубликованная.
+// Видны только активные шаблоны своего проекта. Без локали может найтись несколько строк —
+// по одной на каждую локаль кода; выбирать за портал сервис не будет.
+func (q *Queries) ResolveTemplateVersion(ctx context.Context, arg ResolveTemplateVersionParams) ([]ResolveTemplateVersionRow, error) {
+	rows, err := q.db.Query(ctx, resolveTemplateVersion,
+		arg.Project,
+		arg.Code,
+		arg.Locale,
+		arg.Version,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ResolveTemplateVersionRow
+	for rows.Next() {
+		var i ResolveTemplateVersionRow
+		if err := rows.Scan(
+			&i.TemplateID,
+			&i.Code,
+			&i.Locale,
+			&i.Engine,
+			&i.RetentionDays,
+			&i.VersionID,
+			&i.Version,
+			&i.FileKey,
+			&i.DataSchema,
 		); err != nil {
 			return nil, err
 		}

@@ -17,6 +17,7 @@ type errorResponse struct {
 type errorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	Details any    `json:"details,omitempty"` // подробности: ошибки по полям, изменения схемы
 }
 
 // writeJSON отправляет v в формате JSON с указанным статусом.
@@ -35,6 +36,17 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 		Error: errorBody{
 			Code:    code,
 			Message: message,
+		},
+	})
+}
+
+// writeErrorDetails — как writeError, но с подробностями в error.details.
+func writeErrorDetails(w http.ResponseWriter, r *http.Request, status int, code, message string, details any) {
+	writeJSON(w, r, status, errorResponse{
+		Error: errorBody{
+			Code:    code,
+			Message: message,
+			Details: details,
 		},
 	})
 }

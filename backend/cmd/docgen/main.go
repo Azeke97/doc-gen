@@ -80,6 +80,7 @@ func main() {
 	slog.Info("storage ready", "endpoint", cfg.S3.Endpoint)
 
 	queries := db.New(pool)
+	templateService := templates.NewService(pool, store, cfg.S3.TemplatesBucket)
 
 	serv := &http.Server{
 		Addr: cfg.HTTP.Addr,
@@ -89,7 +90,8 @@ func main() {
 			AdminAuth:       queries,
 			AdminSessionTTL: cfg.Admin.SessionTTL,
 			Projects:        queries,
-			Templates:       templates.NewService(pool, store, cfg.S3.TemplatesBucket),
+			Templates:       templateService,
+			PortalTemplates: templateService,
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,

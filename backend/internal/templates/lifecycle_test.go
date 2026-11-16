@@ -42,7 +42,7 @@ func TestTemplateLifecycle(t *testing.T) {
 		t.Fatalf("activate draft: err = %v, want ErrVersionNotPublished", err)
 	}
 
-	published, err := svc.Publish(ctx, "bob", v1.ID)
+	published, err := svc.Publish(ctx, "bob", v1.ID, PublishOptions{})
 	if err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestTemplateLifecycle(t *testing.T) {
 		t.Errorf("published = %+v, want status published by bob with time", published)
 	}
 
-	if _, err := svc.Publish(ctx, "bob", v1.ID); !errors.Is(err, ErrVersionAlreadyPublished) {
+	if _, err := svc.Publish(ctx, "bob", v1.ID, PublishOptions{}); !errors.Is(err, ErrVersionAlreadyPublished) {
 		t.Errorf("publish twice: err = %v, want ErrVersionAlreadyPublished", err)
 	}
 
@@ -67,7 +67,7 @@ func TestTemplateLifecycle(t *testing.T) {
 	if v2.Version != 2 {
 		t.Fatalf("second version number = %d, want 2", v2.Version)
 	}
-	if _, err := svc.Publish(ctx, "bob", v2.ID); err != nil {
+	if _, err := svc.Publish(ctx, "bob", v2.ID, PublishOptions{}); err != nil {
 		t.Fatalf("Publish v2: %v", err)
 	}
 	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v2.ID); err != nil {
@@ -141,7 +141,7 @@ func TestActivateForeignVersion(t *testing.T) {
 		t.Fatalf("Create second: %v", err)
 	}
 	_, foreign := uploadDraft(t, svc, project, second.ID)
-	if _, err := svc.Publish(ctx, "bob", foreign.ID); err != nil {
+	if _, err := svc.Publish(ctx, "bob", foreign.ID, PublishOptions{}); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestActivateForeignVersion(t *testing.T) {
 	if _, err := svc.Activate(ctx, "bob", first.ID, foreign.ID); !errors.Is(err, ErrVersionNotFound) {
 		t.Errorf("err = %v, want ErrVersionNotFound", err)
 	}
-	if _, err := svc.Publish(ctx, "bob", uuid.New()); !errors.Is(err, ErrVersionNotFound) {
+	if _, err := svc.Publish(ctx, "bob", uuid.New(), PublishOptions{}); !errors.Is(err, ErrVersionNotFound) {
 		t.Errorf("publish unknown: err = %v, want ErrVersionNotFound", err)
 	}
 	if _, err := svc.Archive(ctx, "bob", uuid.New()); !errors.Is(err, ErrTemplateNotFound) {
