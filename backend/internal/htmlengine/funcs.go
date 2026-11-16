@@ -26,6 +26,8 @@ func Funcs() template.FuncMap {
 		"iin":        format.KzID,
 		"check":      format.Check,
 		"tr":         format.Tr,
+		"dict":       dict,
+		"inc":        func(i int) int { return i + 1 },
 
 		"eq": eq,
 		"ne": func(a, b any) (bool, error) { ok, err := eq(a, b); return !ok, err },
@@ -36,6 +38,23 @@ func Funcs() template.FuncMap {
 	}
 	maps.Copy(funcs, documentFuncs(RenderOptions{}))
 	return funcs
+}
+
+// dict собирает словарь из пар ключ-значение: так в именованный блок передают несколько
+// значений, например язык и данные — {{template "block" (dict "lang" "kk" "doc" .)}}.
+func dict(pairs ...any) (map[string]any, error) {
+	if len(pairs)%2 != 0 {
+		return nil, fmt.Errorf("dict: odd number of arguments")
+	}
+	m := make(map[string]any, len(pairs)/2)
+	for i := 0; i < len(pairs); i += 2 {
+		key, ok := pairs[i].(string)
+		if !ok {
+			return nil, fmt.Errorf("dict: key %v is not a string", pairs[i])
+		}
+		m[key] = pairs[i+1]
+	}
+	return m, nil
 }
 
 // eq как встроенный: истина, если a равно хотя бы одному из others. Числа сравниваются

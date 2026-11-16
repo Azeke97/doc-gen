@@ -28,6 +28,7 @@ DocGen is a standalone service shared by the company's portals: given a template
 - `internal/htmlengine` — html/template rendering of JSON data, template functions (`funcs.go`), footer and watermark.
 - `internal/format` — engine-independent formatting of JSON values (money, numbers, dates, amounts in words, BIN/IIN, checkboxes, per-locale values); exact decimals via `math/big`. `format.ValidKzID` is the single BIN/IIN checksum, also used by the `kz-iin`/`kz-bin` schema formats.
 - `internal/gotenberg` — HTML → PDF client.
+- `internal/golden` — golden tests: a synthetic bilingual opening protocol (`testdata/opening_protocol.*`) rendered to HTML and PDF and compared byte for byte with `*.golden.*`. After an intended change to the template, helpers, fonts or Gotenberg, regenerate: `DOCGEN_INTEGRATION=1 go test ./internal/golden -update`, look at the PDF, commit.
 - `internal/storage` (S3), `internal/apikey`, `internal/adminauth`, `internal/config`, `internal/pgerr`.
 - `api/openapi.yaml` — API contract; keep it in sync with handlers.
 
@@ -63,6 +64,8 @@ DocGen is a standalone service shared by the company's portals: given a template
 - Localized data: a field is either a plain string (same in every language) or `{"ru": "...", "kk": "..."}`; `{{tr .name "kk"}}` picks the language and fails if that translation is missing.
 - `eq ne lt le gt ge` are replaced: numbers compare by value (`gt .sum 0` works with JSON numbers), strings as strings, mismatched types are not equal and cannot be ordered.
 - JSON numbers are `json.Number`, so `{{if .count}}` is true even for 0; use `gt .count 0`.
+- Give every template a `<title>`: it becomes the PDF title shown by viewers; without it Gotenberg puts a random temp file name there, and the PDF stops being reproducible. With a title, PDFs of the same version and data differ only in `/CreationDate` and `/ModDate`.
+- `dict` builds a map for named blocks (`{{template "block" (dict "lang" "kk" "doc" .)}}` — how bilingual documents render one block per language); `inc` turns a 0-based `range` index into a row number.
 - Fonts available in Gotenberg with full Kazakh Cyrillic: Liberation Serif/Sans (Times New Roman/Arial metrics), DejaVu, Noto. A template is a single file, so images must be inline `data:` URLs.
 
 ## Security decisions

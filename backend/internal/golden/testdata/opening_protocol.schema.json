@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "$defs": {
+    "text": {"oneOf": [{"type": "string"}, {"type": "object", "required": ["kk", "ru"], "properties": {"kk": {"type": "string"}, "ru": {"type": "string"}}}]},
+    "money": {"type": ["number", "string"]}
+  },
+  "required": ["number", "tender_name", "opened_at", "customer", "commission", "lots", "total", "applicants", "votes"],
+  "properties": {
+    "number": {"type": "string"},
+    "tender_name": {"$ref": "#/$defs/text"},
+    "opened_at": {"type": "string"},
+    "customer": {
+      "type": "object", "required": ["name", "bin"],
+      "properties": {"name": {"$ref": "#/$defs/text"}, "bin": {"type": "string", "format": "kz-bin"}}
+    },
+    "commission": {"type": "array", "items": {"type": "object", "required": ["name", "role"], "properties": {"name": {"type": "string"}, "role": {"$ref": "#/$defs/text"}}}},
+    "lots": {"type": "array", "items": {"type": "object", "required": ["number", "name", "quantity", "amount"], "properties": {"number": {"type": "integer"}, "name": {"$ref": "#/$defs/text"}, "quantity": {"type": "number"}, "amount": {"$ref": "#/$defs/money"}}}},
+    "total": {"$ref": "#/$defs/money"},
+    "applicants": {"type": "array", "items": {"type": "object", "required": ["name", "bin", "submitted_at", "documents"], "properties": {"name": {"$ref": "#/$defs/text"}, "bin": {"type": "string", "format": "kz-bin"}, "submitted_at": {"type": "string"}, "documents": {"type": "array", "items": {"type": "object", "required": ["name"], "properties": {"name": {"$ref": "#/$defs/text"}, "provided": {"type": "boolean"}}}}}}},
+    "votes": {"type": "array", "items": {"type": "object", "required": ["member", "approve", "reason"], "properties": {"member": {"type": "string"}, "approve": {"type": "boolean"}, "reason": {"$ref": "#/$defs/text"}}}}
+  }
+}

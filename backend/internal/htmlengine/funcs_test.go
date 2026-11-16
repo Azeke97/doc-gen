@@ -38,6 +38,8 @@ func TestHelpers(t *testing.T) {
 			data: `{"applicants": [{"name": {"ru": "ТОО «Альфа»", "kk": "«Альфа» ЖШС"}, "docs": [{"ok": true}, {"ok": false}, {}]}]}`,
 			want: "«Альфа» ЖШС / ТОО «Альфа»: ☒ ☐ ☐;",
 		},
+		{name: "dict into named block", src: `{{define "b"}}{{.lang}}:{{.doc.n}}{{end}}{{template "b" (dict "lang" "kk" "doc" .)}}`, data: `{"n": 1}`, want: "kk:1"},
+		{name: "inc for numbering", src: `{{range $i, $x := .xs}}{{inc $i}}{{end}}`, data: `{"xs": ["a", "b"]}`, want: "12"},
 		{name: "len still works", src: `{{if gt (len .lots) 0}}есть{{end}}`, data: `{"lots": [1]}`, want: "есть"},
 	}
 
@@ -66,6 +68,7 @@ func TestHelperErrors(t *testing.T) {
 		{name: "words of fraction", src: `{{words .n "ru"}}`, data: `{"n": 2.5}`},
 		{name: "invalid bin", src: `{{bin .bin}}`, data: `{"bin": "990840001238"}`},
 		{name: "missing translation", src: `{{tr .name "kk"}}`, data: `{"name": {"ru": "только рус"}}`},
+		{name: "dict odd args", src: `{{dict "a"}}`, data: `{}`},
 		{name: "compare missing", src: `{{if gt .sum 0}}{{end}}`, data: `{}`},
 	}
 
