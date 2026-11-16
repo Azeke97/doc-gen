@@ -45,6 +45,13 @@ DocGen is a standalone service shared by the company's portals: given a template
 - Template files live in S3 under `<template_id>/v<N>-<sha256 prefix>.<ext>`; the DB stores key and SHA-256, and every read of a file checks it against that SHA-256.
 - Template/render errors (bad template, Gotenberg rejected the document) are `422`; infrastructure failures are `500`.
 
+## HTML templates and PDF
+
+- Page size, orientation and margins come from CSS `@page` in the template; without `@page size` the page is A4. Keep a bottom margin of at least ~15mm: the footer is drawn there.
+- The service adds the standard footer itself (`htmlengine.Footer`): document identifier on the left, `page / total` on the right.
+- Elements with `position: fixed` repeat on every printed page; this is how watermarks are made. Preview adds the watermark `ОБРАЗЕЦ · ҮЛГІ` (`htmlengine.WithWatermark`) and shows the version ID in the footer.
+- Fonts available in Gotenberg with full Kazakh Cyrillic: Liberation Serif/Sans (Times New Roman/Arial metrics), DejaVu, Noto. A template is a single file, so images must be inline `data:` URLs.
+
 ## Security decisions
 
 - API keys and admin session tokens are stored only as SHA-256 hashes; admin passwords are bcrypt.

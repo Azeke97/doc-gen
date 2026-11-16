@@ -2,11 +2,16 @@ package templates
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+
+	"docgen/internal/gotenberg"
+	"docgen/internal/htmlengine"
 )
 
 func TestPreview(t *testing.T) {
@@ -33,6 +38,18 @@ func TestPreview(t *testing.T) {
 		t.Errorf("result is not a PDF: %q", pdf[:min(len(pdf), 20)])
 	}
 
+	// Что именно уходит в Gotenberg: водяной знак в странице и ID версии в колонтитуле.
+	rec := &recordingConverter{}
+	if _, err := NewService(svc.pool, svc.files, svc.bucket, rec).Preview(ctx, version.ID, ""); err != nil {
+		t.Fatalf("Preview with recorder: %v", err)
+	}
+	if !bytes.Contains(rec.doc.HTML, []byte(htmlengine.PreviewWatermark)) {
+		t.Error("page has no preview watermark")
+	}
+	if !bytes.Contains(rec.doc.Footer, []byte(strings.ReplaceAll(version.ID.String(), "-", ""))) {
+		t.Errorf("footer has no version id:\n%s", rec.doc.Footer)
+	}
+
 	// Файл в хранилище подменили — предпросмотр отказывается его использовать.
 	if err := svc.files.Put(ctx, svc.bucket, version.FileKey, bytes.NewReader([]byte("<h1>forged</h1>")), 15, "text/html"); err != nil {
 		t.Fatalf("forge file: %v", err)
@@ -40,6 +57,16 @@ func TestPreview(t *testing.T) {
 	if _, err := svc.Preview(ctx, version.ID, ""); err == nil {
 		t.Error("forged file: want error")
 	}
+}
+
+// recordingConverter запоминает документ вместо конвертации.
+type recordingConverter struct {
+	doc gotenberg.Document
+}
+
+func (r *recordingConverter) ConvertHTML(_ context.Context, doc gotenberg.Document, _ string) ([]byte, error) {
+	r.doc = doc
+	return []byte("%PDF-"), nil
 }
 
 func TestPreviewErrors(t *testing.T) {

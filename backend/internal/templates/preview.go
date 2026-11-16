@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -16,7 +17,8 @@ import (
 	"docgen/internal/htmlengine"
 )
 
-// Preview отрисовывает версию на её тестовых данных и возвращает PDF.
+// Preview отрисовывает версию на её тестовых данных и возвращает PDF с водяным знаком
+// «образец». В колонтитуле вместо идентификатора документа — идентификатор версии.
 // trace связывает запрос с логами Gotenberg.
 func (s *Service) Preview(ctx context.Context, versionID uuid.UUID, trace string) ([]byte, error) {
 	q := db.New(s.pool)
@@ -54,7 +56,10 @@ func (s *Service) Preview(ctx context.Context, versionID uuid.UUID, trace string
 		return nil, fmt.Errorf("%w: %w", ErrRenderFailed, err)
 	}
 
-	pdf, err := s.pdf.ConvertHTML(ctx, gotenberg.Document{HTML: html}, trace)
+	pdf, err := s.pdf.ConvertHTML(ctx, gotenberg.Document{
+		HTML:   htmlengine.WithWatermark(html, htmlengine.PreviewWatermark),
+		Footer: htmlengine.Footer(strings.ReplaceAll(version.ID.String(), "-", "")),
+	}, trace)
 	if errors.Is(err, gotenberg.ErrConvert) {
 		return nil, fmt.Errorf("%w: %w", ErrRenderFailed, err)
 	}
