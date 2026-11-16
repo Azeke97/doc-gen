@@ -28,6 +28,8 @@ func TestHelpers(t *testing.T) {
 		{name: "date", src: `{{date .d}}`, data: `{"d": "2026-10-20"}`, want: "20.10.2026"},
 		{name: "datetime pilot layout", src: `{{datetime .t "2006-01-02 15:04:05"}}`, data: `{"t": "2026-10-20T07:00:12Z"}`, want: "2026-10-20 12:00:12"},
 		{name: "longdate bilingual", src: `{{longdate .d "kk"}} / {{longdate .d "ru"}}`, data: `{"d": "2026-10-20"}`, want: "2026 жылғы 20 қазан / 20 октября 2026 г."},
+		{name: "money in words bilingual", src: `{{money .sum}} ({{capfirst (moneywords .sum "ru")}}) / {{moneywords .sum "kk"}}`, data: `{"sum": "6000000.00"}`, want: "6\u00a0000\u00a0000.00 (Шесть миллионов тенге 00 тиын) / алты миллион теңге 00 тиын"},
+		{name: "count in words", src: `{{.n}} ({{words .n "ru"}})`, data: `{"n": 3}`, want: "3 (три)"},
 		{name: "len still works", src: `{{if gt (len .lots) 0}}есть{{end}}`, data: `{"lots": [1]}`, want: "есть"},
 	}
 
@@ -53,6 +55,7 @@ func TestHelperErrors(t *testing.T) {
 		{name: "money not a number", src: `{{money .sum}}`, data: `{"sum": "много"}`},
 		{name: "compare number and string", src: `{{if gt .sum "0"}}{{end}}`, data: `{"sum": 1}`},
 		{name: "date in wrong format", src: `{{date .d}}`, data: `{"d": "20.10.2026"}`},
+		{name: "words of fraction", src: `{{words .n "ru"}}`, data: `{"n": 2.5}`},
 		{name: "compare missing", src: `{{if gt .sum 0}}{{end}}`, data: `{}`},
 	}
 

@@ -13,11 +13,14 @@ import (
 // Сравнения eq, ne, lt, le, gt, ge заменены: встроенные не умеют сравнивать json.Number с числом.
 func Funcs() template.FuncMap {
 	return template.FuncMap{
-		"money":    format.Money,
-		"number":   format.Number,
-		"date":     format.Date,
-		"datetime": format.DateTime,
-		"longdate": format.LongDate,
+		"money":      format.Money,
+		"number":     format.Number,
+		"date":       format.Date,
+		"datetime":   format.DateTime,
+		"longdate":   format.LongDate,
+		"words":      format.Words,
+		"moneywords": format.MoneyWords,
+		"capfirst":   format.CapFirst,
 
 		"eq": eq,
 		"ne": func(a, b any) (bool, error) { ok, err := eq(a, b); return !ok, err },
