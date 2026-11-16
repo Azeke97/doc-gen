@@ -21,7 +21,7 @@ type TemplateService interface {
 	ListVersions(ctx context.Context, templateID uuid.UUID) ([]db.TemplateVersion, error)
 	Publish(ctx context.Context, actor string, versionID uuid.UUID, opts templates.PublishOptions) (db.TemplateVersion, error)
 	DiffVersion(ctx context.Context, versionID uuid.UUID) (templates.VersionDiff, error)
-	Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID) (db.Template, error)
+	Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID, opts templates.ActivateOptions) (db.Template, error)
 	Archive(ctx context.Context, actor string, templateID uuid.UUID) (db.Template, error)
 }
 

@@ -37,7 +37,7 @@ func publishVersionHandler(svc TemplateService) http.HandlerFunc {
 
 		// ?confirm_breaking=true — администратор видел ломающие изменения схемы (ответ 409)
 		// и публикует осознанно.
-		opts := templates.PublishOptions{ConfirmBreaking: r.URL.Query().Get("confirm_breaking") == "true"}
+		opts := templates.PublishOptions{ConfirmBreaking: confirmBreaking(r)}
 
 		actor, _ := actorFromContext(r.Context())
 		version, err := svc.Publish(r.Context(), actor.Email, versionID, opts)
@@ -66,8 +66,12 @@ func activateTemplateHandler(svc TemplateService) http.HandlerFunc {
 			return
 		}
 
+		// Как и при публикации: ломающие изменения схемы (в том числе при откате) — 409,
+		// повтор с ?confirm_breaking=true активирует осознанно.
+		opts := templates.ActivateOptions{ConfirmBreaking: confirmBreaking(r)}
+
 		actor, _ := actorFromContext(r.Context())
-		tmpl, err := svc.Activate(r.Context(), actor.Email, templateID, req.VersionID)
+		tmpl, err := svc.Activate(r.Context(), actor.Email, templateID, req.VersionID, opts)
 		if err != nil {
 			writeTemplateError(w, r, err)
 			return
@@ -110,4 +114,9 @@ func diffVersionHandler(svc TemplateService) http.HandlerFunc {
 
 		writeJSON(w, r, http.StatusOK, toDiffResponse(diff))
 	}
+}
+
+// confirmBreaking читает ?confirm_breaking=true: администратор подтверждает ломающие изменения.
+func confirmBreaking(r *http.Request) bool {
+	return r.URL.Query().Get("confirm_breaking") == "true"
 }

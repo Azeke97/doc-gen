@@ -22,7 +22,9 @@ type fakeTemplateService struct {
 	created    bool
 	gotIDs     []uuid.UUID
 	gotOpts    templates.PublishOptions
-	diff       templates.VersionDiff
+
+	gotActivateOpts templates.ActivateOptions
+	diff            templates.VersionDiff
 }
 
 func (f *fakeTemplateService) Create(_ context.Context, actor string, p templates.CreateParams) (db.Template, error) {
@@ -60,8 +62,8 @@ func (f *fakeTemplateService) DiffVersion(_ context.Context, versionID uuid.UUID
 	return f.diff, f.err
 }
 
-func (f *fakeTemplateService) Activate(_ context.Context, actor string, templateID, versionID uuid.UUID) (db.Template, error) {
-	f.gotActor, f.gotIDs = actor, []uuid.UUID{templateID, versionID}
+func (f *fakeTemplateService) Activate(_ context.Context, actor string, templateID, versionID uuid.UUID, opts templates.ActivateOptions) (db.Template, error) {
+	f.gotActor, f.gotIDs, f.gotActivateOpts = actor, []uuid.UUID{templateID, versionID}, opts
 	return db.Template{ID: templateID, Status: "active", ActiveVersionID: &versionID}, f.err
 }
 

@@ -58,6 +58,9 @@ func Compile(raw json.RawMessage) (*Schema, error) {
 	c.DefaultDraft(jsonschema.Draft2020)
 	c.AssertFormat() // "format": "date", "email" и т.п. проверяются, а не просто подсказывают
 	c.UseLoader(denyLoader{})
+	for _, f := range kzFormats {
+		c.RegisterFormat(f)
+	}
 
 	if err := c.AddResource(schemaURL, doc); err != nil {
 		return nil, fmt.Errorf("invalid schema: %w", err)
@@ -90,6 +93,10 @@ func (s *Schema) Validate(data json.RawMessage) ([]FieldError, error) {
 
 	var out []FieldError
 	collect(vErr, &out)
+	if len(out) == 0 {
+		// Страховка: ошибка есть, а полей не нашли — всё равно отклоняем данные.
+		out = append(out, FieldError{Field: pointer(vErr.InstanceLocation), Message: vErr.ErrorKind.LocalizedString(printer)})
+	}
 
 	// Порядок обхода библиотеки не гарантирован — сортируем, чтобы ответ был стабильным.
 	slices.SortFunc(out, func(a, b FieldError) int {

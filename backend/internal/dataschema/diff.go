@@ -15,6 +15,16 @@ const (
 	KindBecameRequired = "became_required"
 	KindTypeChanged    = "type_changed"
 	KindEnumNarrowed   = "enum_narrowed"
+	KindClosed         = "additional_properties_closed"
+	KindConstraint     = "constraint_changed"
+)
+
+// Ограничения, которые сужают допустимые значения. Для нижних границ ломает рост значения,
+// для верхних — уменьшение; для остальных — любое изменение или появление.
+var (
+	lowerBounds = []string{"minimum", "exclusiveMinimum", "minLength", "minItems", "minProperties"}
+	upperBounds = []string{"maximum", "exclusiveMaximum", "maxLength", "maxItems", "maxProperties", "multipleOf"}
+	exactRules  = []string{"pattern", "format", "const", "uniqueItems"}
 )
 
 // Change — одно изменение схемы. Breaking — данные, подходившие под старую схему,
@@ -84,9 +94,19 @@ func diffNode(path string, oldNode, newNode map[string]any, out *[]Change) {
 		}
 	}
 
+	diffConstraints(where, oldNode, newNode, out)
+
 	oldProps, newProps := props(oldNode), props(newNode)
 	oldReq, newReq := required(oldNode), required(newNode)
 	closed := newNode["additionalProperties"] == false
+
+	if closed && oldNode["additionalProperties"] != false {
+		*out = append(*out, Change{Path: where, Kind: KindClosed, Breaking: true, Message: "additional properties are no longer allowed"})
+	}
+
+	// Обязательное поле может быть объявлено только в required, без описания в properties.
+	addRequiredOnly(oldProps, oldReq)
+	addRequiredOnly(newProps, newReq)
 
 	for _, name := range sortedKeys(oldProps, newProps) {
 		child := join(path, name)
@@ -119,6 +139,50 @@ func diffNode(path string, oldNode, newNode map[string]any, out *[]Change) {
 	newItems, okNew := newNode["items"].(map[string]any)
 	if okOld && okNew {
 		diffNode(path+"[]", oldItems, newItems, out)
+	}
+}
+
+// diffConstraints находит сужение ограничений (minLength, maximum, pattern, ...).
+// Снятое ограничение ничего не ломает и в отчёт не попадает.
+func diffConstraints(where string, oldNode, newNode map[string]any, out *[]Change) {
+	report := func(keyword string, oldV, newV any, had bool) {
+		msg := fmt.Sprintf("%s added: %s", keyword, jsonString(newV))
+		if had {
+			msg = fmt.Sprintf("%s changed from %s to %s", keyword, jsonString(oldV), jsonString(newV))
+		}
+		*out = append(*out, Change{Path: where, Kind: KindConstraint, Breaking: true, Message: msg})
+	}
+
+	for _, kw := range lowerBounds {
+		newV, ok := newNode[kw].(float64)
+		if !ok {
+			continue
+		}
+		oldV, had := oldNode[kw].(float64)
+		if !had || newV > oldV {
+			report(kw, oldNode[kw], newV, had)
+		}
+	}
+	for _, kw := range upperBounds {
+		newV, ok := newNode[kw].(float64)
+		if !ok {
+			continue
+		}
+		oldV, had := oldNode[kw].(float64)
+		// multipleOf: другой шаг почти всегда отвергает часть старых значений.
+		if !had || newV < oldV || (kw == "multipleOf" && newV != oldV) {
+			report(kw, oldNode[kw], newV, had)
+		}
+	}
+	for _, kw := range exactRules {
+		newV, ok := newNode[kw]
+		if !ok || newV == false {
+			continue
+		}
+		oldV, had := oldNode[kw]
+		if !had || jsonString(oldV) != jsonString(newV) {
+			report(kw, oldV, newV, had)
+		}
 	}
 }
 
@@ -161,6 +225,15 @@ func props(node map[string]any) map[string]map[string]any {
 		}
 	}
 	return out
+}
+
+// addRequiredOnly добавляет поля из required, которых нет в properties, как поля с любым значением.
+func addRequiredOnly(props map[string]map[string]any, req map[string]bool) {
+	for name := range req {
+		if _, ok := props[name]; !ok {
+			props[name] = map[string]any{}
+		}
+	}
 }
 
 func required(node map[string]any) map[string]bool {

@@ -67,9 +67,10 @@ paths:
           example: opening_protocol
         - name: locale
           in: query
+          description: kz принимается как устаревшее написание kk
           schema:
             type: string
-            enum: [ru, kk, bilingual]
+            enum: [ru, kk, kz, bilingual]
         - name: version
           in: query
           description: Номер опубликованной версии, если портал зафиксировал версию
@@ -346,6 +347,7 @@ paths:
                   description: |
                     JSON Schema данных шаблона (draft 2020-12 по умолчанию), корень — "type": "object".
                     Внешние $ref запрещены: определения держите внутри схемы в $defs.
+                    format проверяется; кроме стандартных есть kz-iin и kz-bin (12 цифр и контрольная цифра).
                 test_data:
                   type: string
                   description: |
@@ -459,6 +461,9 @@ paths:
   /admin/v1/templates/{id}/activate:
     post:
       summary: Сделать опубликованную версию активной (так же выполняется откат)
+      description: |
+        Активация меняет то, что получают порталы, поэтому схема сравнивается с текущей активной версией.
+        Ломающие изменения (в том числе при откате) — 409 breaking_changes, повтор с confirm_breaking=true.
       tags: [admin]
       security:
         - AdminSession: []
@@ -470,6 +475,11 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: confirm_breaking
+          in: query
+          description: Активировать, несмотря на ломающие изменения схемы
+          schema:
+            type: boolean
       requestBody:
         required: true
         content:
@@ -500,7 +510,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Версия не опубликована или шаблон в архиве
+          description: Версия не опубликована, шаблон в архиве или схема ломает совместимость (breaking_changes, details — SchemaDiff)
           content:
             application/json:
               schema:
@@ -713,7 +723,7 @@ components:
           example: lots[].amount
         kind:
           type: string
-          enum: [field_added, field_removed, became_required, type_changed, enum_narrowed]
+          enum: [field_added, field_removed, became_required, type_changed, enum_narrowed, additional_properties_closed, constraint_changed]
         breaking:
           type: boolean
         message:

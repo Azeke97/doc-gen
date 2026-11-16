@@ -38,7 +38,7 @@ func TestTemplateLifecycle(t *testing.T) {
 	tmpl, v1 := uploadDraft(t, svc, project, uuid.Nil)
 
 	// Черновик нельзя сделать активным.
-	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID); !errors.Is(err, ErrVersionNotPublished) {
+	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID, ActivateOptions{}); !errors.Is(err, ErrVersionNotPublished) {
 		t.Fatalf("activate draft: err = %v, want ErrVersionNotPublished", err)
 	}
 
@@ -54,7 +54,7 @@ func TestTemplateLifecycle(t *testing.T) {
 		t.Errorf("publish twice: err = %v, want ErrVersionAlreadyPublished", err)
 	}
 
-	active, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID)
+	active, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID, ActivateOptions{})
 	if err != nil {
 		t.Fatalf("Activate v1: %v", err)
 	}
@@ -70,10 +70,10 @@ func TestTemplateLifecycle(t *testing.T) {
 	if _, err := svc.Publish(ctx, "bob", v2.ID, PublishOptions{}); err != nil {
 		t.Fatalf("Publish v2: %v", err)
 	}
-	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v2.ID); err != nil {
+	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v2.ID, ActivateOptions{}); err != nil {
 		t.Fatalf("Activate v2: %v", err)
 	}
-	rolledBack, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID)
+	rolledBack, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID, ActivateOptions{})
 	if err != nil {
 		t.Fatalf("roll back to v1: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestTemplateLifecycle(t *testing.T) {
 	if _, err := svc.Archive(ctx, "bob", tmpl.ID); !errors.Is(err, ErrTemplateArchived) {
 		t.Errorf("archive twice: err = %v, want ErrTemplateArchived", err)
 	}
-	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v2.ID); !errors.Is(err, ErrTemplateArchived) {
+	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v2.ID, ActivateOptions{}); !errors.Is(err, ErrTemplateArchived) {
 		t.Errorf("activate archived: err = %v, want ErrTemplateArchived", err)
 	}
 
@@ -146,7 +146,7 @@ func TestActivateForeignVersion(t *testing.T) {
 	}
 
 	// Версия принадлежит другому шаблону — для первого шаблона её «нет».
-	if _, err := svc.Activate(ctx, "bob", first.ID, foreign.ID); !errors.Is(err, ErrVersionNotFound) {
+	if _, err := svc.Activate(ctx, "bob", first.ID, foreign.ID, ActivateOptions{}); !errors.Is(err, ErrVersionNotFound) {
 		t.Errorf("err = %v, want ErrVersionNotFound", err)
 	}
 	if _, err := svc.Publish(ctx, "bob", uuid.New(), PublishOptions{}); !errors.Is(err, ErrVersionNotFound) {

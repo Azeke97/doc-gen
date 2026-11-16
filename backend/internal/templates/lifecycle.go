@@ -25,7 +25,7 @@ type BreakingChangesError struct {
 }
 
 func (e *BreakingChangesError) Error() string {
-	return "schema has breaking changes compared to the version portals use now; confirm to publish"
+	return "schema has breaking changes compared to the version portals use now; repeat with confirm_breaking=true to proceed"
 }
 
 // VersionDiff — чем схема версии отличается от базовой. BaseVersion — номер версии,
@@ -60,6 +60,12 @@ func (s *Service) Publish(ctx context.Context, actor string, versionID uuid.UUID
 		}
 		if tmpl.Status == "archived" {
 			return ErrTemplateArchived
+		}
+
+		// Перечитываем версию под блокировкой: пока мы её ждали, черновик могли заменить,
+		// и сравнивать схему надо с тем, что действительно будет опубликовано.
+		if draft, err = q.GetTemplateVersion(ctx, versionID); err != nil {
+			return err
 		}
 		if draft.Status != "draft" {
 			return ErrVersionAlreadyPublished
@@ -157,9 +163,17 @@ func diffWithBase(ctx context.Context, q *db.Queries, tmpl db.Template, v db.Tem
 	return VersionDiff{BaseVersion: &base.Version, Changes: changes}, nil
 }
 
+// ActivateOptions — настройки активации.
+type ActivateOptions struct {
+	// ConfirmBreaking — администратор видел ломающие изменения схемы и активирует осознанно.
+	ConfirmBreaking bool
+}
+
 // Activate делает опубликованную версию версией по умолчанию и переводит шаблон в active.
 // Им же выполняется откат: активировать предыдущую версию.
-func (s *Service) Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID) (db.Template, error) {
+// Именно активация меняет то, что получают порталы, поэтому схема новой активной версии
+// сравнивается с текущей; ломающие изменения (в том числе при откате) требуют подтверждения.
+func (s *Service) Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID, opts ActivateOptions) (db.Template, error) {
 	var tmpl db.Template
 
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
@@ -187,6 +201,23 @@ func (s *Service) Activate(ctx context.Context, actor string, templateID, versio
 			return ErrVersionNotPublished
 		}
 
+		diff := VersionDiff{Changes: []dataschema.Change{}}
+		if locked.ActiveVersionID != nil && *locked.ActiveVersionID != versionID {
+			current, err := q.GetTemplateVersion(ctx, *locked.ActiveVersionID)
+			if err != nil {
+				return err
+			}
+			changes, err := dataschema.Diff(current.DataSchema, version.DataSchema)
+			if err != nil {
+				return err
+			}
+			diff = VersionDiff{BaseVersion: &current.Version, Changes: changes}
+		}
+		breaking := dataschema.HasBreaking(diff.Changes)
+		if breaking && !opts.ConfirmBreaking {
+			return &BreakingChangesError{Diff: diff}
+		}
+
 		tmpl, err = q.SetActiveVersion(ctx, db.SetActiveVersionParams{ID: templateID, ActiveVersionID: &versionID})
 		if err != nil {
 			return err
@@ -196,6 +227,8 @@ func (s *Service) Activate(ctx context.Context, actor string, templateID, versio
 			"version_id":          versionID,
 			"version":             version.Version,
 			"previous_version_id": locked.ActiveVersionID,
+			"schema_changes":      diff.Changes,
+			"breaking_confirmed":  breaking,
 		})
 	})
 	if err != nil {

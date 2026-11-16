@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -33,6 +34,8 @@ func (s *Service) UploadVersion(ctx context.Context, actor string, templateID uu
 	var (
 		version db.TemplateVersion
 		created bool
+		putKey  string // что положили в хранилище в этой операции
+		oldKey  string // файл заменённого черновика
 	)
 
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
@@ -66,11 +69,15 @@ func (s *Service) UploadVersion(ctx context.Context, actor string, templateID uu
 			}
 		}
 
-		key := fileKey(tmpl, number)
 		sum := sha256.Sum256(p.File)
+		key := fileKey(tmpl, number, sum)
+		if !created {
+			oldKey = draft.FileKey
+		}
 		if err := s.files.Put(ctx, s.bucket, key, bytes.NewReader(p.File), int64(len(p.File)), contentType(tmpl.Engine)); err != nil {
 			return err
 		}
+		putKey = key
 
 		if created {
 			version, err = q.CreateTemplateVersion(ctx, db.CreateTemplateVersionParams{
@@ -103,11 +110,28 @@ func (s *Service) UploadVersion(ctx context.Context, actor string, templateID uu
 			"replaced":    !created,
 		})
 	})
+	// Хранилище не участвует в транзакции, поэтому прибираем за ней сами. Удаляем только
+	// файлы, на которые в базе точно никто не ссылается; неудача — не ошибка операции.
+	cleanup := context.WithoutCancel(ctx)
 	if err != nil {
+		if putKey != "" && putKey != oldKey {
+			s.deleteFile(cleanup, putKey)
+		}
 		return db.TemplateVersion{}, false, fmt.Errorf("upload version: %w", err)
+	}
+	if oldKey != "" && oldKey != putKey {
+		s.deleteFile(cleanup, oldKey)
 	}
 
 	return version, created, nil
+}
+
+// deleteFile удаляет файл без ссылок на него. Ошибку только логируем: лишний файл
+// в хранилище безвреден, а операция с базой уже завершена.
+func (s *Service) deleteFile(ctx context.Context, key string) {
+	if err := s.files.Delete(ctx, s.bucket, key); err != nil {
+		slog.WarnContext(ctx, "delete unreferenced template file", "key", key, "err", err)
+	}
 }
 
 // ListVersions возвращает версии шаблона, новые первыми.
@@ -163,9 +187,11 @@ func validateUpload(engine string, p UploadParams) error {
 	return nil
 }
 
-// fileKey — путь файла версии в бакете: <id шаблона>/v<номер>.<расширение>.
-func fileKey(tmpl db.Template, version int32) string {
-	return fmt.Sprintf("%s/v%d.%s", tmpl.ID, version, tmpl.Engine)
+// fileKey — путь файла версии в бакете: <id шаблона>/v<номер>-<начало sha256>.<расширение>.
+// Хэш в имени нужен, чтобы замена черновика писала в новый файл, а не поверх старого:
+// если транзакция откатится, в базе останется старый хэш — и старый файл под ним.
+func fileKey(tmpl db.Template, version int32, sum [sha256.Size]byte) string {
+	return fmt.Sprintf("%s/v%d-%x.%s", tmpl.ID, version, sum[:8], tmpl.Engine)
 }
 
 func contentType(engine string) string {

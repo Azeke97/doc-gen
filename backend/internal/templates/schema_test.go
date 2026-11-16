@@ -9,6 +9,7 @@ import (
 
 	"docgen/internal/dataschema"
 	"docgen/internal/db"
+	"docgen/internal/storage"
 )
 
 // publishActive загружает версию со схемой, публикует и делает активной.
@@ -23,7 +24,7 @@ func publishActive(t *testing.T, svc *Service, tmplID uuid.UUID, schema string) 
 	if _, err := svc.Publish(ctx, "bob", v.ID, PublishOptions{ConfirmBreaking: true}); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
-	if _, err := svc.Activate(ctx, "bob", tmplID, v.ID); err != nil {
+	if _, err := svc.Activate(ctx, "bob", tmplID, v.ID, ActivateOptions{}); err != nil {
 		t.Fatalf("Activate: %v", err)
 	}
 	return v
@@ -159,7 +160,7 @@ func TestPublishBreakingChanges(t *testing.T) {
 	if _, err := svc.Publish(ctx, "bob", v1.ID, PublishOptions{}); err != nil {
 		t.Fatalf("Publish v1: %v", err)
 	}
-	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID); err != nil {
+	if _, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID, ActivateOptions{}); err != nil {
 		t.Fatalf("Activate v1: %v", err)
 	}
 
@@ -209,5 +210,87 @@ func TestPublishBreakingChanges(t *testing.T) {
 	}
 	if !details.BreakingConfirmed || details.BaseVersion != 1 || len(details.SchemaChanges) != 1 {
 		t.Errorf("audit details = %+v", details)
+	}
+}
+
+func TestActivateRollbackBreaking(t *testing.T) {
+	svc, _, project := newTestService(t)
+	ctx := t.Context()
+
+	tmpl, err := svc.Create(ctx, "alice", validParams(project))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// v1 требует title, v2 делает его необязательным: публикация v2 ничего не ломает,
+	// а вот откат на v1 — ломает порталы, которые уже перестали слать title.
+	v1 := publishActive(t, svc, tmpl.ID, `{"type":"object","required":["title"],"properties":{"title":{"type":"string"}}}`)
+	publishActive(t, svc, tmpl.ID, `{"type":"object","properties":{"title":{"type":"string"}}}`)
+
+	_, err = svc.Activate(ctx, "bob", tmpl.ID, v1.ID, ActivateOptions{})
+	var bErr *BreakingChangesError
+	if !errors.As(err, &bErr) {
+		t.Fatalf("rollback: err = %v, want BreakingChangesError", err)
+	}
+	if bErr.Diff.BaseVersion == nil || *bErr.Diff.BaseVersion != 2 || len(bErr.Diff.Changes) != 1 || bErr.Diff.Changes[0].Kind != dataschema.KindBecameRequired {
+		t.Errorf("diff = %+v, want base 2 and became_required", bErr.Diff)
+	}
+
+	rolledBack, err := svc.Activate(ctx, "bob", tmpl.ID, v1.ID, ActivateOptions{ConfirmBreaking: true})
+	if err != nil {
+		t.Fatalf("confirmed rollback: %v", err)
+	}
+	if *rolledBack.ActiveVersionID != v1.ID {
+		t.Errorf("active = %s, want v1 %s", *rolledBack.ActiveVersionID, v1.ID)
+	}
+}
+
+func TestReplaceDraftDeletesOldFile(t *testing.T) {
+	svc, _, project := newTestService(t)
+	ctx := t.Context()
+
+	tmpl, first := uploadDraft(t, svc, project, uuid.Nil)
+
+	second, created, err := svc.UploadVersion(ctx, "alice", tmpl.ID, UploadParams{File: []byte(`<h2>{{.title}}</h2>`), Schema: testSchema})
+	if err != nil {
+		t.Fatalf("replace draft: %v", err)
+	}
+	if created || second.ID != first.ID {
+		t.Fatalf("want the same draft replaced, got created=%v", created)
+	}
+	if second.FileKey == first.FileKey {
+		t.Fatalf("file key did not change: %s", second.FileKey)
+	}
+
+	// Новый файл на месте, старый удалён: на него больше никто не ссылается.
+	r, err := svc.files.Get(ctx, svc.bucket, second.FileKey)
+	if err != nil {
+		t.Fatalf("get new file: %v", err)
+	}
+	_ = r.Close()
+	if _, err := svc.files.Get(ctx, svc.bucket, first.FileKey); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("old file: err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestResolveLocaleInput(t *testing.T) {
+	svc, _, project := newTestService(t)
+	ctx := t.Context()
+
+	p := validParams(project)
+	p.Locale = "kk"
+	tmpl, err := svc.Create(ctx, "alice", p)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	publishActive(t, svc, tmpl.ID, string(testSchema))
+
+	got, err := svc.Resolve(ctx, project, Ref{Code: p.Code, Locale: "kz"})
+	if err != nil || got.Locale != "kk" {
+		t.Errorf("legacy kz: got %+v, %v; want kk", got, err)
+	}
+
+	var vErr *ValidationError
+	if _, err := svc.Resolve(ctx, project, Ref{Code: p.Code, Locale: "en"}); !errors.As(err, &vErr) || vErr.Field != "locale" {
+		t.Errorf("unknown locale: err = %v, want ValidationError on locale", err)
 	}
 }

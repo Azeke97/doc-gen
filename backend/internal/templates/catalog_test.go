@@ -25,7 +25,7 @@ func TestPortalCatalog(t *testing.T) {
 	if _, err := svc.Publish(ctx, "bob", v2.ID, PublishOptions{}); err != nil {
 		t.Fatalf("Publish v2: %v", err)
 	}
-	if _, err := svc.Activate(ctx, "bob", opening.ID, v2.ID); err != nil {
+	if _, err := svc.Activate(ctx, "bob", opening.ID, v2.ID, ActivateOptions{}); err != nil {
 		t.Fatalf("Activate: %v", err)
 	}
 

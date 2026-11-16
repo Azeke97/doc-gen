@@ -123,3 +123,25 @@ func TestUploadTestDataErrorsInDetails(t *testing.T) {
 		t.Errorf("error = %+v", resp.Error)
 	}
 }
+
+func TestActivateBreakingChanges(t *testing.T) {
+	path := "/admin/v1/templates/" + uuid.NewString() + "/activate"
+	body := `{"version_id":"` + uuid.NewString() + `"}`
+
+	s := newAdminTestServer(t)
+	s.templates.err = &templates.BreakingChangesError{Diff: breakingDiff}
+	token := s.login()
+
+	assertErrorCode(t, s.do(http.MethodPost, path, body, token), http.StatusConflict, "breaking_changes")
+	if s.templates.gotActivateOpts.ConfirmBreaking {
+		t.Error("ConfirmBreaking = true without query parameter")
+	}
+
+	s.templates.err = nil
+	if rec := s.do(http.MethodPost, path+"?confirm_breaking=true", body, token); rec.Code != http.StatusOK {
+		t.Fatalf("confirmed: status = %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !s.templates.gotActivateOpts.ConfirmBreaking {
+		t.Error("ConfirmBreaking = false, want true")
+	}
+}

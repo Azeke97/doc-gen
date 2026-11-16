@@ -46,7 +46,31 @@ func TestDiff(t *testing.T) {
 			name: "field removed from closed object",
 			old:  `{"type": "object", "properties": {"a": {"type": "string"}}}`,
 			new:  `{"type": "object", "additionalProperties": false, "properties": {}}`,
-			want: []Change{{Path: "a", Kind: KindFieldRemoved, Breaking: true, Message: "field removed and additional properties are not allowed"}},
+			want: []Change{
+				{Path: "(root)", Kind: KindClosed, Breaking: true, Message: "additional properties are no longer allowed"},
+				{Path: "a", Kind: KindFieldRemoved, Breaking: true, Message: "field removed and additional properties are not allowed"},
+			},
+		},
+		{
+			name: "required without properties",
+			old:  `{"type": "object"}`,
+			new:  `{"type": "object", "required": ["number"]}`,
+			want: []Change{{Path: "number", Kind: KindFieldAdded, Breaking: true, Message: "new required field"}},
+		},
+		{
+			name: "constraints tightened",
+			old:  `{"type": "object", "properties": {"s": {"type": "string", "maxLength": 100}, "n": {"type": "number", "minimum": 0}}}`,
+			new:  `{"type": "object", "properties": {"s": {"type": "string", "maxLength": 50, "pattern": "^[0-9]+$"}, "n": {"type": "number", "minimum": 1}}}`,
+			want: []Change{
+				{Path: "n", Kind: KindConstraint, Breaking: true, Message: "minimum changed from 0 to 1"},
+				{Path: "s", Kind: KindConstraint, Breaking: true, Message: "maxLength changed from 100 to 50"},
+				{Path: "s", Kind: KindConstraint, Breaking: true, Message: `pattern added: "^[0-9]+$"`},
+			},
+		},
+		{
+			name: "constraints relaxed is fine",
+			old:  `{"type": "object", "properties": {"s": {"type": "string", "maxLength": 50, "minLength": 5, "format": "kz-bin"}}}`,
+			new:  `{"type": "object", "properties": {"s": {"type": "string", "maxLength": 100, "minLength": 1}}}`,
 		},
 		{
 			name: "nested type changed in array items",

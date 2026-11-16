@@ -3,6 +3,7 @@ package templates
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"docgen/internal/db"
@@ -32,7 +33,11 @@ func (s *Service) ListActive(ctx context.Context, project string) ([]db.ListActi
 func (s *Service) Resolve(ctx context.Context, project string, ref Ref) (db.ResolveTemplateVersionRow, error) {
 	params := db.ResolveTemplateVersionParams{Project: project, Code: ref.Code}
 	if ref.Locale != "" {
-		params.Locale = &ref.Locale
+		locale := normalizeLocale(ref.Locale)
+		if !slices.Contains(locales, locale) {
+			return db.ResolveTemplateVersionRow{}, &ValidationError{Field: "locale", Message: "must be one of " + strings.Join(locales, ", ")}
+		}
+		params.Locale = &locale
 	}
 	if ref.Version != 0 {
 		params.Version = &ref.Version
@@ -60,4 +65,13 @@ func (s *Service) Resolve(ctx context.Context, project string, ref Ref) (db.Reso
 	default:
 		return db.ResolveTemplateVersionRow{}, ErrTemplateNotFound
 	}
+}
+
+// normalizeLocale принимает устаревший код казахского kz (так его до сих пор шлют
+// часть порталов) как kk — код по ISO 639-1, который хранится в шаблонах.
+func normalizeLocale(locale string) string {
+	if locale == "kz" {
+		return "kk"
+	}
+	return locale
 }
