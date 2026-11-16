@@ -32,7 +32,14 @@ services:
   gotenberg:
     image: gotenberg/gotenberg:8.39.0
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${GOTENBERG_PORT}:3000"
+    # Документы самодостаточны: Chromium не ходит в сеть, не выполняет JavaScript, вебхуки не нужны.
+    command:
+      - gotenberg
+      - --chromium-deny-private-ips
+      - --chromium-deny-public-ips
+      - --chromium-disable-javascript
+      - --webhook-disable
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 5s

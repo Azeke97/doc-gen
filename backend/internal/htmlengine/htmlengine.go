@@ -12,7 +12,7 @@ import (
 )
 
 // MaxOutput — предельный размер готового HTML.
-var MaxOutput = 20 << 20 // 20 МиБ
+const MaxOutput = 20 << 20 // 20 МиБ
 
 // ErrRender — шаблон не отрисовался на этих данных: виноваты шаблон или данные, а не сервис.
 var ErrRender = errors.New("render template")
@@ -52,7 +52,7 @@ func (t *Template) Render(data json.RawMessage) ([]byte, error) {
 		return nil, fmt.Errorf("%w: data must be a JSON object: %w", ErrRender, err)
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("%w: data must be contain a single JSON object", ErrRender)
+		return nil, fmt.Errorf("%w: data must contain a single JSON object", ErrRender)
 	}
 
 	var buf bytes.Buffer
