@@ -19,11 +19,6 @@ var ErrRender = errors.New("render template")
 
 var errOutputTooLarge = fmt.Errorf("output exceeds %d bytes", MaxOutput)
 
-// Funcs возвращает функции шаблонов. Один набор и для проверки при загрузке, и для генерации.
-func Funcs() template.FuncMap {
-	return template.FuncMap{}
-}
-
 // Template — разобранный шаблон. Можно отрисовывать из нескольких горутин одновременно.
 type Template struct {
 	tmpl      *template.Template

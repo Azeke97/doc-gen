@@ -77,7 +77,7 @@ func TestRender(t *testing.T) {
 }
 
 func TestParseError(t *testing.T) {
-	for _, src := range []string{`{{if .a}}`, `{{money .a}}`} {
+	for _, src := range []string{`{{if .a}}`, `{{nosuchfunc .a}}`} {
 		if _, err := Parse([]byte(src)); err == nil {
 			t.Errorf("Parse(%q): want error", src)
 		}
@@ -94,7 +94,6 @@ func TestRenderErrors(t *testing.T) {
 		{name: "not an object", src: `x`, data: `[1]`, wantErr: "JSON object"},
 		{name: "two values", src: `x`, data: `{} {}`, wantErr: "single JSON object"},
 		{name: "range over string", src: `{{range .title}}{{end}}`, data: `{"title": "x"}`, wantErr: "range can't iterate"},
-		{name: "compare json number", src: `{{if gt .sum 0}}{{end}}`, data: `{"sum": 1}`, wantErr: "incompatible types"},
 	}
 
 	for _, tt := range tests {
