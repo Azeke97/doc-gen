@@ -25,7 +25,7 @@ DocGen is a standalone service shared by the company's portals: given a template
 - `internal/templates` — template registry service: every change runs in a transaction and writes `audit_log`.
 - `internal/dataschema` — JSON Schema compile/validate, per-field errors, schema diff.
 - `internal/htmlengine` — html/template rendering of JSON data, template functions (`funcs.go`), footer and watermark.
-- `internal/format` — engine-independent formatting of JSON values (money, numbers, dates, amounts in words); exact decimals via `math/big`.
+- `internal/format` — engine-independent formatting of JSON values (money, numbers, dates, amounts in words, BIN/IIN, checkboxes, per-locale values); exact decimals via `math/big`. `format.ValidKzID` is the single BIN/IIN checksum, also used by the `kz-iin`/`kz-bin` schema formats.
 - `internal/gotenberg` — HTML → PDF client.
 - `internal/storage` (S3), `internal/apikey`, `internal/adminauth`, `internal/config`, `internal/pgerr`.
 - `api/openapi.yaml` — API contract; keep it in sync with handlers.
@@ -54,6 +54,8 @@ DocGen is a standalone service shared by the company's portals: given a template
 - Template functions: `money` (`6 000 000.00`: 2 decimals, half away from zero, groups by non-breaking space), `number` (`1 500`, `2.5`). Both accept numbers or numeric strings; a missing value prints empty.
 - Dates: `date` (`20.10.2026`), `datetime` (`20.10.2026 12:00:12`), both with an optional Go layout (`{{datetime .t "2006-01-02 15:04:05"}}`); `longdate v "ru"|"kk"` (`20 октября 2026 г.` / `2026 жылғы 20 қазан`). Input is ISO: `2006-01-02`, RFC 3339, or `2006-01-02 15:04[:05]` without offset (read as Kazakhstan time). Output is in `Asia/Almaty` (UTC+5 since 2024-03-01, UTC+6 before); tzdata is embedded in the binary.
 - In words: `words v "ru"|"kk"` (integers only, below 10^15: `шесть миллионов`, `алты миллион`), `moneywords v "ru"|"kk"` (`шесть миллионов тенге 00 тиын`, `алты миллион теңге 00 тиын`; rounded like `money`), `capfirst` for an upper-case first letter. Russian counts use masculine forms except `тысяча`; in Kazakh 100 is `жүз`, 1000 and higher take `бір` (`бір мың`).
+- `bin`/`iin` print the 12 digits after removing spaces and dashes, left-pad a JSON number with zeros (lost leading zero of IINs from the 2000s) and fail on a bad check digit. `check` prints `☒` for true, `☐` for false or missing.
+- Localized data: a field is either a plain string (same in every language) or `{"ru": "...", "kk": "..."}`; `{{tr .name "kk"}}` picks the language and fails if that translation is missing.
 - `eq ne lt le gt ge` are replaced: numbers compare by value (`gt .sum 0` works with JSON numbers), strings as strings, mismatched types are not equal and cannot be ordered.
 - JSON numbers are `json.Number`, so `{{if .count}}` is true even for 0; use `gt .count 0`.
 - Fonts available in Gotenberg with full Kazakh Cyrillic: Liberation Serif/Sans (Times New Roman/Arial metrics), DejaVu, Noto. A template is a single file, so images must be inline `data:` URLs.

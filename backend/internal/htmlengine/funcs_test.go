@@ -30,6 +30,14 @@ func TestHelpers(t *testing.T) {
 		{name: "longdate bilingual", src: `{{longdate .d "kk"}} / {{longdate .d "ru"}}`, data: `{"d": "2026-10-20"}`, want: "2026 жылғы 20 қазан / 20 октября 2026 г."},
 		{name: "money in words bilingual", src: `{{money .sum}} ({{capfirst (moneywords .sum "ru")}}) / {{moneywords .sum "kk"}}`, data: `{"sum": "6000000.00"}`, want: "6\u00a0000\u00a0000.00 (Шесть миллионов тенге 00 тиын) / алты миллион теңге 00 тиын"},
 		{name: "count in words", src: `{{.n}} ({{words .n "ru"}})`, data: `{"n": 3}`, want: "3 (три)"},
+		{name: "bin normalized", src: `{{bin .bin}}`, data: `{"bin": "9908 4000 1239"}`, want: "990840001239"},
+		{name: "iin leading zero", src: `{{iin .iin}}`, data: `{"iin": 50101500010}`, want: "050101500010"},
+		{
+			name: "pilot checklist bilingual",
+			src:  `{{range .applicants}}{{tr .name "kk"}} / {{tr .name "ru"}}:{{range .docs}} {{check .ok}}{{end}};{{end}}`,
+			data: `{"applicants": [{"name": {"ru": "ТОО «Альфа»", "kk": "«Альфа» ЖШС"}, "docs": [{"ok": true}, {"ok": false}, {}]}]}`,
+			want: "«Альфа» ЖШС / ТОО «Альфа»: ☒ ☐ ☐;",
+		},
 		{name: "len still works", src: `{{if gt (len .lots) 0}}есть{{end}}`, data: `{"lots": [1]}`, want: "есть"},
 	}
 
@@ -56,6 +64,8 @@ func TestHelperErrors(t *testing.T) {
 		{name: "compare number and string", src: `{{if gt .sum "0"}}{{end}}`, data: `{"sum": 1}`},
 		{name: "date in wrong format", src: `{{date .d}}`, data: `{"d": "20.10.2026"}`},
 		{name: "words of fraction", src: `{{words .n "ru"}}`, data: `{"n": 2.5}`},
+		{name: "invalid bin", src: `{{bin .bin}}`, data: `{"bin": "990840001238"}`},
+		{name: "missing translation", src: `{{tr .name "kk"}}`, data: `{"name": {"ru": "только рус"}}`},
 		{name: "compare missing", src: `{{if gt .sum 0}}{{end}}`, data: `{}`},
 	}
 

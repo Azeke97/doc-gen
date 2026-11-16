@@ -21,6 +21,10 @@ func Funcs() template.FuncMap {
 		"words":      format.Words,
 		"moneywords": format.MoneyWords,
 		"capfirst":   format.CapFirst,
+		"bin":        format.KzID,
+		"iin":        format.KzID,
+		"check":      format.Check,
+		"tr":         format.Tr,
 
 		"eq": eq,
 		"ne": func(a, b any) (bool, error) { ok, err := eq(a, b); return !ok, err },
