@@ -49,6 +49,26 @@ type AuditLog struct {
 	Details    json.RawMessage
 }
 
+type Document struct {
+	ID                uuid.UUID
+	PublicID          string
+	APIClientID       uuid.UUID
+	Project           string
+	TemplateID        uuid.UUID
+	TemplateVersionID uuid.UUID
+	ExternalID        *string
+	RequestedBy       *string
+	Format            string
+	FileKey           string
+	FileSha256        []byte
+	FileSize          int64
+	Data              json.RawMessage
+	IdempotencyKey    string
+	RequestSha256     []byte
+	CreatedAt         time.Time
+	ExpiresAt         time.Time
+}
+
 type Project struct {
 	Code      string
 	Name      string

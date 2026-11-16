@@ -41,3 +41,4 @@ sql:
               pointer: true
         rename:
           api_client: "APIClient"
+          api_client_id: "APIClientID"

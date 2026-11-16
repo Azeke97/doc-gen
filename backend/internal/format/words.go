@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -122,13 +123,13 @@ func wordsRu(n uint64) string {
 
 	var parts []string
 	g := groups(n)
-	for i := len(g) - 1; i >= 0; i-- {
-		if g[i] == 0 {
+	for i, v := range slices.Backward(g) {
+		if v == 0 {
 			continue
 		}
-		parts = append(parts, tripleRu(g[i], ruScales[i].female)...)
+		parts = append(parts, tripleRu(v, ruScales[i].female)...)
 		if i > 0 {
-			parts = append(parts, ruScales[i].forms[ruPlural(g[i])])
+			parts = append(parts, ruScales[i].forms[ruPlural(v)])
 		}
 	}
 	return strings.Join(parts, " ")
