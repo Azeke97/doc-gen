@@ -25,6 +25,9 @@ type fakeTemplateService struct {
 
 	gotActivateOpts templates.ActivateOptions
 	diff            templates.VersionDiff
+
+	pdf      []byte
+	gotTrace string
 }
 
 func (f *fakeTemplateService) Create(_ context.Context, actor string, p templates.CreateParams) (db.Template, error) {
@@ -60,6 +63,11 @@ func (f *fakeTemplateService) Publish(_ context.Context, actor string, versionID
 func (f *fakeTemplateService) DiffVersion(_ context.Context, versionID uuid.UUID) (templates.VersionDiff, error) {
 	f.gotIDs = []uuid.UUID{versionID}
 	return f.diff, f.err
+}
+
+func (f *fakeTemplateService) Preview(_ context.Context, versionID uuid.UUID, trace string) ([]byte, error) {
+	f.gotIDs, f.gotTrace = []uuid.UUID{versionID}, trace
+	return f.pdf, f.err
 }
 
 func (f *fakeTemplateService) Activate(_ context.Context, actor string, templateID, versionID uuid.UUID, opts templates.ActivateOptions) (db.Template, error) {

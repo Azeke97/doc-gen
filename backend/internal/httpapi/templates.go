@@ -21,6 +21,7 @@ type TemplateService interface {
 	ListVersions(ctx context.Context, templateID uuid.UUID) ([]db.TemplateVersion, error)
 	Publish(ctx context.Context, actor string, versionID uuid.UUID, opts templates.PublishOptions) (db.TemplateVersion, error)
 	DiffVersion(ctx context.Context, versionID uuid.UUID) (templates.VersionDiff, error)
+	Preview(ctx context.Context, versionID uuid.UUID, trace string) ([]byte, error)
 	Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID, opts templates.ActivateOptions) (db.Template, error)
 	Archive(ctx context.Context, actor string, templateID uuid.UUID) (db.Template, error)
 }
@@ -127,6 +128,12 @@ func writeTemplateError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusConflict, "version_already_published", templates.ErrVersionAlreadyPublished.Error())
 	case errors.Is(err, templates.ErrVersionNotPublished):
 		writeError(w, r, http.StatusConflict, "version_not_published", templates.ErrVersionNotPublished.Error())
+	case errors.Is(err, templates.ErrNoTestData):
+		writeError(w, r, http.StatusUnprocessableEntity, "no_test_data", templates.ErrNoTestData.Error())
+	case errors.Is(err, templates.ErrPreviewNotSupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "preview_not_supported", templates.ErrPreviewNotSupported.Error())
+	case errors.Is(err, templates.ErrRenderFailed):
+		writeError(w, r, http.StatusUnprocessableEntity, "render_failed", err.Error())
 	default:
 		slog.ErrorContext(r.Context(), "template operation", "err", err)
 		writeError(w, r, http.StatusInternalServerError, "internal", "internal server error")

@@ -15,6 +15,7 @@ import (
 
 	"docgen/internal/dataschema"
 	"docgen/internal/db"
+	"docgen/internal/gotenberg"
 	"docgen/internal/pgerr"
 	"docgen/internal/storage"
 )
@@ -44,6 +45,10 @@ var (
 	ErrVersionNotFound         = errors.New("template version not found")
 	ErrVersionAlreadyPublished = errors.New("template version is already published")
 	ErrVersionNotPublished     = errors.New("template version is not published")
+
+	ErrNoTestData          = errors.New("template version has no test data")
+	ErrPreviewNotSupported = errors.New("preview is available only for html templates")
+	ErrRenderFailed        = errors.New("template cannot be rendered")
 )
 
 // ValidationError — данные не прошли проверку; Field — какое поле виновато.
@@ -74,17 +79,23 @@ type DB interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
+// PDFConverter превращает HTML в PDF.
+type PDFConverter interface {
+	ConvertHTML(ctx context.Context, doc gotenberg.Document, trace string) ([]byte, error)
+}
+
 // Service выполняет операции с шаблонами. Каждая операция, меняющая данные,
 // пишет запись в audit_log в той же транзакции.
 type Service struct {
 	pool   DB
 	files  *storage.Store
 	bucket string
+	pdf    PDFConverter
 }
 
 // NewService создаёт сервис шаблонов. bucket — бакет, где лежат файлы шаблонов.
-func NewService(pool DB, files *storage.Store, bucket string) *Service {
-	return &Service{pool: pool, files: files, bucket: bucket}
+func NewService(pool DB, files *storage.Store, bucket string, pdf PDFConverter) *Service {
+	return &Service{pool: pool, files: files, bucket: bucket, pdf: pdf}
 }
 
 // CreateParams — данные нового шаблона.

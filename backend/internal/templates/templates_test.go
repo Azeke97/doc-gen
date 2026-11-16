@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"docgen/internal/db"
+	"docgen/internal/gotenberg"
 	"docgen/internal/storage"
 )
 
@@ -79,7 +80,9 @@ func newTestService(t *testing.T) (*Service, pgx.Tx, string) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	return NewService(tx, files, bucket), tx, project
+	pdf := gotenberg.New(os.Getenv("GOTENBERG_URL"), 30*time.Second)
+
+	return NewService(tx, files, bucket, pdf), tx, project
 }
 
 func validParams(project string) CreateParams {

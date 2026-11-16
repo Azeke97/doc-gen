@@ -32,7 +32,7 @@ DocGen is a standalone service shared by the company's portals: given a template
 ## API
 
 - Portal (`/v1`, header `X-API-Key: dg_...`): `GET /whoami`, `GET /templates`, `GET /templates/{code}/schema?locale=&version=`. The project always comes from the key, never from the request.
-- Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`): projects, templates, version upload (multipart), publish, diff, activate (also rollback), archive.
+- Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`): projects, templates, version upload (multipart), publish, diff, activate (also rollback), archive, PDF preview of a version on its test data (`GET /versions/{id}/preview`, html engine only).
 - Errors: `{"error": {"code", "message", "details?"}}`; `details` holds per-field errors or a schema diff.
 
 ## Domain rules
@@ -42,7 +42,8 @@ DocGen is a standalone service shared by the company's portals: given a template
 - Upload validates the schema (draft 2020-12, root `type: object`, no external `$ref`, formats asserted incl. `kz-iin`/`kz-bin`), validates test data against it and renders the HTML template on it.
 - Publish and activate compare the schema with the version portals use now; breaking changes return `409 breaking_changes` unless `?confirm_breaking=true`.
 - Concurrency: operations that change a template lock its row (`SELECT ... FOR UPDATE`); there is no in-process locking.
-- Template files live in S3 under `<template_id>/v<N>-<sha256 prefix>.<ext>`; the DB stores key and SHA-256.
+- Template files live in S3 under `<template_id>/v<N>-<sha256 prefix>.<ext>`; the DB stores key and SHA-256, and every read of a file checks it against that SHA-256.
+- Template/render errors (bad template, Gotenberg rejected the document) are `422`; infrastructure failures are `500`.
 
 ## Security decisions
 

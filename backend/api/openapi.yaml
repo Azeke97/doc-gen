@@ -458,6 +458,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/v1/versions/{id}/preview:
+    get:
+      summary: PDF версии, отрисованной на её тестовых данных
+      tags: [ admin ]
+      security:
+        - AdminSession: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID версии
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Версия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Нет тестовых данных (no_test_data), движок не html (preview_not_supported) или шаблон не отрисовался (render_failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /admin/v1/templates/{id}/activate:
     post:
       summary: Сделать опубликованную версию активной (так же выполняется откат)

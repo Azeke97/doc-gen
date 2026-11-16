@@ -60,6 +60,7 @@ func NewRouter(deps Deps) http.Handler {
 			r.Post("/templates/{id}/activate", activateTemplateHandler(deps.Templates))
 			r.Post("/templates/{id}/archive", archiveTemplateHandler(deps.Templates))
 			r.Get("/versions/{id}/diff", diffVersionHandler(deps.Templates))
+			r.Get("/versions/{id}/preview", previewVersionHandler(deps.Templates))
 			r.Post("/versions/{id}/publish", publishVersionHandler(deps.Templates))
 		})
 	})

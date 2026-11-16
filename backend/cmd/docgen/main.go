@@ -14,6 +14,7 @@ import (
 
 	"docgen/internal/config"
 	"docgen/internal/db"
+	"docgen/internal/gotenberg"
 	"docgen/internal/httpapi"
 	"docgen/internal/storage"
 	"docgen/internal/templates"
@@ -80,7 +81,8 @@ func main() {
 	slog.Info("storage ready", "endpoint", cfg.S3.Endpoint)
 
 	queries := db.New(pool)
-	templateService := templates.NewService(pool, store, cfg.S3.TemplatesBucket)
+	pdf := gotenberg.New(cfg.Gotenberg.URL, cfg.Gotenberg.Timeout)
+	templateService := templates.NewService(pool, store, cfg.S3.TemplatesBucket, pdf)
 
 	serv := &http.Server{
 		Addr: cfg.HTTP.Addr,
