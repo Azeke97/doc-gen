@@ -23,7 +23,7 @@ DocGen is a standalone service shared by the company's portals: given a template
 - `migrations/` — goose SQL; `internal/db/queries/*.sql` → sqlc-generated code in `internal/db` (never edit generated files).
 - `internal/httpapi` — router, handlers, middleware. Handlers depend on small interfaces declared next to them.
 - `internal/templates` — template registry service: every change runs in a transaction and writes `audit_log`.
-- `internal/documents` — generated documents (portal-facing).
+- `internal/documents` — document generation (`Service.Generate`) and storage; depends on `templates` for `Resolve`/`LoadFile`.
 - `internal/dataschema` — JSON Schema compile/validate, per-field errors, schema diff.
 - `internal/htmlengine` — html/template rendering of JSON data, template functions (`funcs.go`), footer and watermark.
 - `internal/format` — engine-independent formatting of JSON values (money, numbers, dates, amounts in words, BIN/IIN, checkboxes, per-locale values); exact decimals via `math/big`. `format.ValidKzID` is the single BIN/IIN checksum, also used by the `kz-iin`/`kz-bin` schema formats.
@@ -44,6 +44,8 @@ DocGen is a standalone service shared by the company's portals: given a template
 - Upload validates the schema (draft 2020-12, root `type: object`, no external `$ref`, formats asserted incl. `kz-iin`/`kz-bin`), validates test data against it and renders the HTML template on it.
 - Publish and activate compare the schema with the version portals use now; breaking changes return `409 breaking_changes` unless `?confirm_breaking=true`.
 - Documents (`documents` table) are immutable (trigger), reference a published version of the same template (composite FK + trigger), are unique per `(api_client_id, idempotency_key)`, keep the input JSON in the same row and carry `expires_at` computed from the template retention at creation. `public_id` (32 random hex) is what the footer and verification show; `id` is internal UUIDv7.
+- Generation: request check → idempotency lookup → `Resolve` → data validated against the version schema (`400 invalid_data` with field errors) → template file read with SHA-256 check → render → PDF with the standard footer showing `public_id` (no watermark) → file to the documents bucket at `<project>/<yyyy>/<mm>/<public_id>.pdf` → row inserted. Only `html` templates producing `pdf` are supported.
+- Idempotency: the request fingerprint is SHA-256 of the canonical request (template, locale, version, format, data with sorted keys, external_id, requested_by). Same key + same fingerprint returns the existing document; same key + different fingerprint is `ErrIdempotencyConflict`. A concurrent duplicate loses on the unique index, deletes its file and returns the winner.
 - Concurrency: operations that change a template lock its row (`SELECT ... FOR UPDATE`); there is no in-process locking.
 - Template files live in S3 under `<template_id>/v<N>-<sha256 prefix>.<ext>`; the DB stores key and SHA-256, and every read of a file checks it against that SHA-256.
 - Template/render errors (bad template, Gotenberg rejected the document) are `422`; infrastructure failures are `500`.

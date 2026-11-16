@@ -38,7 +38,7 @@ ORDER BY t.code, t.locale;
 -- Видны только активные шаблоны своего проекта. Без локали может найтись несколько строк —
 -- по одной на каждую локаль кода; выбирать за портал сервис не будет.
 SELECT t.id AS template_id, t.code, t.locale, t.engine, t.retention_days,
-       v.id AS version_id, v.version, v.file_key, v.data_schema
+       v.id AS version_id, v.version, v.file_key, v.file_sha256, v.data_schema
 FROM templates t
 JOIN template_versions v ON v.template_id = t.id
 WHERE t.project = sqlc.arg('project')

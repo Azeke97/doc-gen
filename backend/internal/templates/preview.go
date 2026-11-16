@@ -42,7 +42,7 @@ func (s *Service) Preview(ctx context.Context, versionID uuid.UUID, trace string
 		return nil, ErrNoTestData
 	}
 
-	src, err := s.loadFile(ctx, version)
+	src, err := s.LoadFile(ctx, version.FileKey, version.FileSha256)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +70,10 @@ func (s *Service) Preview(ctx context.Context, versionID uuid.UUID, trace string
 	return pdf, nil
 }
 
-// loadFile читает файл версии из хранилища и сверяет его с SHA-256 из базы:
+// LoadFile читает файл версии из хранилища и сверяет его с SHA-256 из базы:
 // подменённый в хранилище файл не должен попасть в документ.
-func (s *Service) loadFile(ctx context.Context, v db.TemplateVersion) ([]byte, error) {
-	r, err := s.files.Get(ctx, s.bucket, v.FileKey)
+func (s *Service) LoadFile(ctx context.Context, key string, sha []byte) ([]byte, error) {
+	r, err := s.files.Get(ctx, s.bucket, key)
 	if err != nil {
 		return nil, fmt.Errorf("load template file: %w", err)
 	}
@@ -85,8 +85,8 @@ func (s *Service) loadFile(ctx context.Context, v db.TemplateVersion) ([]byte, e
 	}
 
 	sum := sha256.Sum256(content)
-	if !bytes.Equal(sum[:], v.FileSha256) {
-		return nil, fmt.Errorf("template file %s does not match its sha256", v.FileKey)
+	if !bytes.Equal(sum[:], sha) {
+		return nil, fmt.Errorf("template file %s does not match its sha256", key)
 	}
 
 	return content, nil
