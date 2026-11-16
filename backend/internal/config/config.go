@@ -41,6 +41,12 @@ type GotenbergConfig struct {
 	Timeout time.Duration `env:"TIMEOUT" envDefault:"10s"`
 }
 
+// DocumentsConfig содержит настройки выпуска документов.
+type DocumentsConfig struct {
+	// VerifyURL — адрес публичной страницы проверки; к нему приписывается public_id документа.
+	VerifyURL string `env:"VERIFY_URL,required"`
+}
+
 // AdminConfig содержит настройки входа в админку.
 type AdminConfig struct {
 	SessionTTL time.Duration `env:"SESSION_TTL" envDefault:"12h"`
@@ -52,6 +58,7 @@ type Config struct {
 	DB        DBConfig        `envPrefix:"DB_"`
 	S3        S3Config        `envPrefix:"S3_"`
 	Gotenberg GotenbergConfig `envPrefix:"GOTENBERG_"`
+	Documents DocumentsConfig `envPrefix:"DOCUMENTS_"`
 	Admin     AdminConfig     `envPrefix:"ADMIN_"`
 	LogLevel  slog.Level      `env:"LOG_LEVEL" envDefault:"info"`
 }

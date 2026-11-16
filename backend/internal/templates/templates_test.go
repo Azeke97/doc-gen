@@ -22,6 +22,8 @@ import (
 // Всё, что делает тест, выполняется внутри одной транзакции, которая в конце откатывается:
 // в базе не остаётся ничего, даже опубликованных версий, которые иначе удалить нельзя.
 // Транзакции самого сервиса внутри неё становятся точками сохранения (SAVEPOINT).
+const testVerifyBase = "https://docgen.test/v1/verify/"
+
 func newTestService(t *testing.T) (*Service, pgx.Tx, string) {
 	t.Helper()
 
@@ -82,7 +84,7 @@ func newTestService(t *testing.T) (*Service, pgx.Tx, string) {
 
 	pdf := gotenberg.New(os.Getenv("GOTENBERG_URL"), 30*time.Second)
 
-	return NewService(tx, files, bucket, pdf), tx, project
+	return NewService(tx, files, bucket, pdf, testVerifyBase), tx, project
 }
 
 func validParams(project string) CreateParams {

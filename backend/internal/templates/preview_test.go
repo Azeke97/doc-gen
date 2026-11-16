@@ -40,7 +40,7 @@ func TestPreview(t *testing.T) {
 
 	// Что именно уходит в Gotenberg: водяной знак в странице и ID версии в колонтитуле.
 	rec := &recordingConverter{}
-	if _, err := NewService(svc.pool, svc.files, svc.bucket, rec).Preview(ctx, version.ID, ""); err != nil {
+	if _, err := NewService(svc.pool, svc.files, svc.bucket, rec, testVerifyBase).Preview(ctx, version.ID, ""); err != nil {
 		t.Fatalf("Preview with recorder: %v", err)
 	}
 	if !bytes.Contains(rec.doc.HTML, []byte(htmlengine.PreviewWatermark)) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"maps"
 	"strings"
 
 	"docgen/internal/format"
@@ -12,7 +13,7 @@ import (
 // Funcs возвращает функции шаблонов. Один набор и для проверки при загрузке, и для генерации.
 // Сравнения eq, ne, lt, le, gt, ge заменены: встроенные не умеют сравнивать json.Number с числом.
 func Funcs() template.FuncMap {
-	return template.FuncMap{
+	funcs := template.FuncMap{
 		"money":      format.Money,
 		"number":     format.Number,
 		"date":       format.Date,
@@ -33,6 +34,8 @@ func Funcs() template.FuncMap {
 		"gt": func(a, b any) (bool, error) { c, err := order(a, b); return c > 0, err },
 		"ge": func(a, b any) (bool, error) { c, err := order(a, b); return c >= 0, err },
 	}
+	maps.Copy(funcs, documentFuncs(RenderOptions{}))
+	return funcs
 }
 
 // eq как встроенный: истина, если a равно хотя бы одному из others. Числа сравниваются

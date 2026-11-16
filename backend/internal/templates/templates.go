@@ -91,11 +91,19 @@ type Service struct {
 	files  *storage.Store
 	bucket string
 	pdf    PDFConverter
+
+	verifyBase string
 }
 
-// NewService создаёт сервис шаблонов. bucket — бакет, где лежат файлы шаблонов.
-func NewService(pool DB, files *storage.Store, bucket string, pdf PDFConverter) *Service {
-	return &Service{pool: pool, files: files, bucket: bucket, pdf: pdf}
+// NewService создаёт сервис шаблонов. bucket — бакет, где лежат файлы шаблонов;
+// verifyBase — адрес страницы проверки, к нему приписывается идентификатор документа.
+func NewService(pool DB, files *storage.Store, bucket string, pdf PDFConverter, verifyBase string) *Service {
+	return &Service{pool: pool, files: files, bucket: bucket, pdf: pdf, verifyBase: verifyBase}
+}
+
+// VerifyURL — ссылка на страницу проверки документа: её печатает {{verifyurl}} и кодирует {{qr}}.
+func VerifyURL(base, documentID string) string {
+	return strings.TrimRight(base, "/") + "/" + documentID
 }
 
 // CreateParams — данные нового шаблона.

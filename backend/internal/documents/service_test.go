@@ -23,7 +23,9 @@ import (
 )
 
 const testPage = `<!doctype html><html><head><meta charset="utf-8"><style>@page { size: A4 landscape; }</style></head>` +
-	`<body><h1>Протокол № {{.number}}</h1><p>{{money .sum}}</p></body></html>`
+	`<body><h1>Протокол № {{.number}}</h1><p>{{money .sum}}</p><p>{{verifyurl}}</p><img src="{{qr}}" alt="QR"></body></html>`
+
+const testVerifyBase = "https://docgen.test/v1/verify/"
 
 const testSchema = `{"type":"object","required":["number","sum"],"properties":{"number":{"type":"string"},"sum":{"type":"number"}}}`
 
@@ -102,10 +104,10 @@ func newTestEnv(t *testing.T) *env {
 	e := &env{
 		tx:        tx,
 		files:     files,
-		templates: templates.NewService(tx, files, tmplBucket, pdf),
+		templates: templates.NewService(tx, files, tmplBucket, pdf, testVerifyBase),
 		client:    client,
 	}
-	e.documents = NewService(tx, e.templates, pdf, files, docBucket)
+	e.documents = NewService(tx, e.templates, pdf, files, docBucket, testVerifyBase)
 
 	if e.tmpl, err = e.templates.Create(ctx, "alice", templates.CreateParams{
 		Project: project, Code: "opening_protocol", Locale: "ru", Name: "Протокол", Engine: "html", RetentionDays: 30,
@@ -280,7 +282,7 @@ func (r *recordingConverter) ConvertHTML(_ context.Context, doc gotenberg.Docume
 func TestGenerateFooterHasPublicID(t *testing.T) {
 	e := newTestEnv(t)
 	rec := &recordingConverter{}
-	svc := NewService(e.tx, e.templates, rec, e.files, os.Getenv("S3_DOCUMENTS_BUCKET"))
+	svc := NewService(e.tx, e.templates, rec, e.files, os.Getenv("S3_DOCUMENTS_BUCKET"), testVerifyBase)
 
 	doc, _, err := svc.Generate(t.Context(), e.client, request("footer"), "")
 	if err != nil {
@@ -288,6 +290,9 @@ func TestGenerateFooterHasPublicID(t *testing.T) {
 	}
 	if !bytes.Contains(rec.doc.Footer, []byte(doc.PublicID)) {
 		t.Errorf("footer has no public id %s:\n%s", doc.PublicID, rec.doc.Footer)
+	}
+	if !bytes.Contains(rec.doc.HTML, []byte(testVerifyBase+doc.PublicID)) || !bytes.Contains(rec.doc.HTML, []byte(`src="data:image/png;base64,`)) {
+		t.Errorf("page has no verify link or QR for %s", doc.PublicID)
 	}
 	if bytes.Contains(rec.doc.HTML, []byte("ОБРАЗЕЦ")) {
 		t.Error("real document must not carry the preview watermark")

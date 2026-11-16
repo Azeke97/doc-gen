@@ -177,7 +177,7 @@ func validateUpload(engine string, p UploadParams) error {
 			return &ValidationError{Field: "file", Message: "invalid HTML template: " + err.Error()}
 		}
 		if len(p.TestData) > 0 {
-			if _, err := tmpl.Render(p.TestData); err != nil {
+			if _, err := tmpl.Render(p.TestData, uploadCheckOptions); err != nil {
 				return &ValidationError{Field: "file", Message: "template fails on test data: " + err.Error()}
 			}
 		}
@@ -189,6 +189,12 @@ func validateUpload(engine string, p UploadParams) error {
 	}
 
 	return nil
+}
+
+// uploadCheckOptions — значения документа для пробной отрисовки при загрузке: настоящих ещё нет.
+var uploadCheckOptions = htmlengine.RenderOptions{
+	DocumentID: "00000000000000000000000000000000",
+	VerifyURL:  "https://docgen.invalid/verify/00000000000000000000000000000000",
 }
 
 // fileKey — путь файла версии в бакете: <id шаблона>/v<номер>-<начало sha256>.<расширение>.

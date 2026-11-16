@@ -51,14 +51,18 @@ func (s *Service) Preview(ctx context.Context, versionID uuid.UUID, trace string
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRenderFailed, err)
 	}
-	html, err := page.Render(version.TestData)
+	docID := strings.ReplaceAll(version.ID.String(), "-", "")
+	html, err := page.Render(version.TestData, htmlengine.RenderOptions{
+		DocumentID: docID,
+		VerifyURL:  VerifyURL(s.verifyBase, docID),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRenderFailed, err)
 	}
 
 	pdf, err := s.pdf.ConvertHTML(ctx, gotenberg.Document{
 		HTML:   htmlengine.WithWatermark(html, htmlengine.PreviewWatermark),
-		Footer: htmlengine.Footer(strings.ReplaceAll(version.ID.String(), "-", "")),
+		Footer: htmlengine.Footer(docID),
 	}, trace)
 	if errors.Is(err, gotenberg.ErrConvert) {
 		return nil, fmt.Errorf("%w: %w", ErrRenderFailed, err)

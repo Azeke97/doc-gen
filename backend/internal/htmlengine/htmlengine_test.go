@@ -7,6 +7,11 @@ import (
 	"testing"
 )
 
+var testOptions = RenderOptions{
+	DocumentID: "0195f3c9a1e54b7d8c2a8e6f1b3d5a7c",
+	VerifyURL:  "https://docgen.test/v1/verify/0195f3c9a1e54b7d8c2a8e6f1b3d5a7c",
+}
+
 func render(t *testing.T, src, data string) (string, error) {
 	t.Helper()
 
@@ -14,7 +19,7 @@ func render(t *testing.T, src, data string) (string, error) {
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	out, err := tmpl.Render(json.RawMessage(data))
+	out, err := tmpl.Render(json.RawMessage(data), testOptions)
 	return string(out), err
 }
 
@@ -113,7 +118,7 @@ func TestRenderOutputLimit(t *testing.T) {
 	}
 	tmpl.maxOutput = 30
 
-	_, err = tmpl.Render(json.RawMessage(`{"rows": [1, 2, 3, 4, 5]}`))
+	_, err = tmpl.Render(json.RawMessage(`{"rows": [1, 2, 3, 4, 5]}`), testOptions)
 	if !errors.Is(err, ErrRender) || !errors.Is(err, errOutputTooLarge) {
 		t.Errorf("err = %v, want ErrRender wrapping errOutputTooLarge", err)
 	}

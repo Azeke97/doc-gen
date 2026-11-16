@@ -46,11 +46,14 @@ type Service struct {
 	files     *storage.Store
 	bucket    string
 	now       func() time.Time
+
+	verifyBase string
 }
 
-// NewService создаёт сервис документов. bucket — бакет, где лежат файлы документов.
-func NewService(conn db.DBTX, tmpl TemplateSource, pdf PDFConverter, files *storage.Store, bucket string) *Service {
-	return &Service{db: conn, templates: tmpl, pdf: pdf, files: files, bucket: bucket, now: time.Now}
+// NewService создаёт сервис документов. bucket — бакет, где лежат файлы документов;
+// verifyBase — адрес страницы проверки, к нему приписывается public_id.
+func NewService(conn db.DBTX, tmpl TemplateSource, pdf PDFConverter, files *storage.Store, bucket, verifyBase string) *Service {
+	return &Service{db: conn, templates: tmpl, pdf: pdf, files: files, bucket: bucket, now: time.Now, verifyBase: verifyBase}
 }
 
 // GenerateRequest — запрос портала на выпуск документа.
@@ -170,7 +173,10 @@ func (s *Service) render(ctx context.Context, v db.ResolveTemplateVersionRow, da
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", templates.ErrRenderFailed, err)
 	}
-	html, err := page.Render(data)
+	html, err := page.Render(data, htmlengine.RenderOptions{
+		DocumentID: publicID,
+		VerifyURL:  templates.VerifyURL(s.verifyBase, publicID),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", templates.ErrRenderFailed, err)
 	}

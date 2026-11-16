@@ -38,7 +38,8 @@ func Parse(src []byte) (*Template, error) {
 
 // Render отрисовывает шаблон на данных. Числа остаются json.Number, чтобы суммы
 // выводились ровно так, как их прислали, без округления float64.
-func (t *Template) Render(data json.RawMessage) ([]byte, error) {
+// opts — значения документа для {{docid}}, {{verifyurl}} и {{qr}}.
+func (t *Template) Render(data json.RawMessage, opts RenderOptions) ([]byte, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
 
@@ -50,8 +51,15 @@ func (t *Template) Render(data json.RawMessage) ([]byte, error) {
 		return nil, fmt.Errorf("%w: data must contain a single JSON object", ErrRender)
 	}
 
+	// Копия нужна, чтобы подставить значения документа, не трогая общий разобранный шаблон.
+	page, err := t.tmpl.Clone()
+	if err != nil {
+		return nil, fmt.Errorf("clone template: %w", err)
+	}
+	page.Funcs(documentFuncs(opts))
+
 	var buf bytes.Buffer
-	if err := t.tmpl.Execute(&limitWriter{w: &buf, left: t.maxOutput}, v); err != nil {
+	if err := page.Execute(&limitWriter{w: &buf, left: t.maxOutput}, v); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRender, err)
 	}
 	return buf.Bytes(), nil
