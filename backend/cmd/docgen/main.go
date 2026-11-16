@@ -84,6 +84,11 @@ func main() {
 	queries := db.New(pool)
 	pdf := gotenberg.New(cfg.Gotenberg.URL, cfg.Gotenberg.Timeout)
 	templateService := templates.NewService(pool, store, cfg.S3.TemplatesBucket, pdf, cfg.Documents.VerifyURL)
+	documentService := documents.NewService(pool, templateService, pdf, store, cfg.S3.DocumentsBucket, cfg.Documents.VerifyURL)
+
+	if cfg.Documents.CleanupInterval > 0 {
+		go documentService.RunCleanup(ctx, cfg.Documents.CleanupInterval, cfg.Documents.CleanupBatch)
+	}
 
 	serv := &http.Server{
 		Addr: cfg.HTTP.Addr,
@@ -95,7 +100,7 @@ func main() {
 			Projects:        queries,
 			Templates:       templateService,
 			PortalTemplates: templateService,
-			Documents:       documents.NewService(pool, templateService, pdf, store, cfg.S3.DocumentsBucket, cfg.Documents.VerifyURL),
+			Documents:       documentService,
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,

@@ -82,6 +82,16 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 	return i, err
 }
 
+const deleteDocuments = `-- name: DeleteDocuments :exec
+DELETE FROM documents
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) DeleteDocuments(ctx context.Context, ids []uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteDocuments, ids)
+	return err
+}
+
 const getDocumentByIdempotencyKey = `-- name: GetDocumentByIdempotencyKey :one
 SELECT id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at FROM documents
 WHERE api_client_id = $1 AND idempotency_key = $2
@@ -164,4 +174,44 @@ func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocument
 		&i.Version,
 	)
 	return i, err
+}
+
+const lockExpiredDocuments = `-- name: LockExpiredDocuments :many
+SELECT id, file_key FROM documents
+WHERE expires_at <= $1
+ORDER BY expires_at
+LIMIT $2
+FOR UPDATE SKIP LOCKED
+`
+
+type LockExpiredDocumentsParams struct {
+	ExpiresAt time.Time
+	Limit     int32
+}
+
+type LockExpiredDocumentsRow struct {
+	ID      uuid.UUID
+	FileKey string
+}
+
+// Документы с истёкшим сроком хранения. SKIP LOCKED: несколько экземпляров сервиса
+// чистят одновременно и не берут одни и те же строки.
+func (q *Queries) LockExpiredDocuments(ctx context.Context, arg LockExpiredDocumentsParams) ([]LockExpiredDocumentsRow, error) {
+	rows, err := q.db.Query(ctx, lockExpiredDocuments, arg.ExpiresAt, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockExpiredDocumentsRow
+	for rows.Next() {
+		var i LockExpiredDocumentsRow
+		if err := rows.Scan(&i.ID, &i.FileKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -3,7 +3,6 @@ package documents
 import (
 	"bytes"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -49,7 +48,7 @@ func TestGetAndFile(t *testing.T) {
 
 	// Файл в хранилище подменили — отдавать его нельзя.
 	forged := []byte("%PDF-forged")
-	if err := e.files.Put(ctx, os.Getenv("S3_DOCUMENTS_BUCKET"), created.FileKey, bytes.NewReader(forged), int64(len(forged)), "application/pdf"); err != nil {
+	if err := e.files.Put(ctx, e.docBucket, created.FileKey, bytes.NewReader(forged), int64(len(forged)), "application/pdf"); err != nil {
 		t.Fatalf("forge file: %v", err)
 	}
 	if _, _, err := e.documents.File(ctx, e.client.Project, created.ID); err == nil {

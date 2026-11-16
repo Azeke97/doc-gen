@@ -38,9 +38,15 @@ type PDFConverter interface {
 	ConvertHTML(ctx context.Context, doc gotenberg.Document, trace string) ([]byte, error)
 }
 
+// DB — то, через что сервис ходит в базу: запросы и транзакции (пул или транзакция в тестах).
+type DB interface {
+	db.DBTX
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 // Service выпускает документы.
 type Service struct {
-	db        db.DBTX
+	db        DB
 	templates TemplateSource
 	pdf       PDFConverter
 	files     *storage.Store
@@ -52,7 +58,7 @@ type Service struct {
 
 // NewService создаёт сервис документов. bucket — бакет, где лежат файлы документов;
 // verifyBase — адрес страницы проверки, к нему приписывается public_id.
-func NewService(conn db.DBTX, tmpl TemplateSource, pdf PDFConverter, files *storage.Store, bucket, verifyBase string) *Service {
+func NewService(conn DB, tmpl TemplateSource, pdf PDFConverter, files *storage.Store, bucket, verifyBase string) *Service {
 	return &Service{db: conn, templates: tmpl, pdf: pdf, files: files, bucket: bucket, now: time.Now, verifyBase: verifyBase}
 }
 

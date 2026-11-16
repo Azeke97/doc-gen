@@ -45,6 +45,9 @@ type GotenbergConfig struct {
 type DocumentsConfig struct {
 	// VerifyURL — адрес публичной страницы проверки; к нему приписывается public_id документа.
 	VerifyURL string `env:"VERIFY_URL,required"`
+	// CleanupInterval — как часто удалять документы с истёкшим сроком хранения; 0 — не удалять.
+	CleanupInterval time.Duration `env:"CLEANUP_INTERVAL" envDefault:"1h"`
+	CleanupBatch    int32         `env:"CLEANUP_BATCH" envDefault:"100"`
 }
 
 // AdminConfig содержит настройки входа в админку.

@@ -27,12 +27,18 @@ const testPage = `<!doctype html><html><head><meta charset="utf-8"><style>@page 
 
 const testVerifyBase = "https://docgen.test/v1/verify/"
 
+// testDocumentsBucket — отдельный бакет документов для тестов. Очистка ищет просроченные
+// документы по всей базе, а тесты работают с базой разработчика: строки вернёт откат
+// транзакции, а файлы из общего бакета удалились бы по-настоящему.
+const testDocumentsBucket = "docgen-test-documents"
+
 const testSchema = `{"type":"object","required":["number","sum"],"properties":{"number":{"type":"string"},"sum":{"type":"number"}}}`
 
 // env — настоящие Postgres (в откатываемой транзакции), MinIO и Gotenberg.
 type env struct {
 	tx        pgx.Tx
 	files     *storage.Store
+	docBucket string
 	templates *templates.Service
 	documents *Service
 	client    db.APIClient
@@ -64,7 +70,7 @@ func newTestEnv(t *testing.T) *env {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	tmplBucket, docBucket := os.Getenv("S3_TEMPLATES_BUCKET"), os.Getenv("S3_DOCUMENTS_BUCKET")
+	tmplBucket, docBucket := os.Getenv("S3_TEMPLATES_BUCKET"), testDocumentsBucket
 	for _, b := range []string{tmplBucket, docBucket} {
 		if err := files.EnsureBucket(ctx, b); err != nil {
 			t.Fatalf("bucket %s: %v", b, err)
@@ -104,6 +110,7 @@ func newTestEnv(t *testing.T) *env {
 	e := &env{
 		tx:        tx,
 		files:     files,
+		docBucket: docBucket,
 		templates: templates.NewService(tx, files, tmplBucket, pdf, testVerifyBase),
 		client:    client,
 	}
@@ -177,7 +184,7 @@ func TestGenerate(t *testing.T) {
 	}
 
 	// Файл в хранилище — тот самый PDF, хэш и размер которого записаны в документе.
-	r, err := e.files.Get(ctx, os.Getenv("S3_DOCUMENTS_BUCKET"), doc.FileKey)
+	r, err := e.files.Get(ctx, e.docBucket, doc.FileKey)
 	if err != nil {
 		t.Fatalf("get file: %v", err)
 	}
@@ -282,7 +289,7 @@ func (r *recordingConverter) ConvertHTML(_ context.Context, doc gotenberg.Docume
 func TestGenerateFooterHasPublicID(t *testing.T) {
 	e := newTestEnv(t)
 	rec := &recordingConverter{}
-	svc := NewService(e.tx, e.templates, rec, e.files, os.Getenv("S3_DOCUMENTS_BUCKET"), testVerifyBase)
+	svc := NewService(e.tx, e.templates, rec, e.files, e.docBucket, testVerifyBase)
 
 	doc, _, err := svc.Generate(t.Context(), e.client, request("footer"), "")
 	if err != nil {
