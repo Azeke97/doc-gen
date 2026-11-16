@@ -95,6 +95,130 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v1/documents:
+    post:
+      summary: Выпустить документ по шаблону
+      description: |
+        Повтор с тем же Idempotency-Key и тем же запросом возвращает уже выпущенный документ (200).
+        Тот же ключ с другим запросом — 409 idempotency_conflict.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateDocumentRequest"
+      responses:
+        "201":
+          description: Документ выпущен
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "200":
+          description: Повтор запроса — уже выпущенный документ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "400":
+          description: Неверный запрос; invalid_data — данные не прошли схему, ошибки по полям в error.details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Шаблон или версия не найдены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Ключ идемпотентности уже использован для другого запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          description: Тело запроса больше 5 МиБ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Шаблон не отрисовался на этих данных (render_failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    /v1/documents/{id}:
+      get:
+        summary: Метаданные документа своего проекта
+        parameters:
+          - $ref: "#/components/parameters/DocumentID"
+        responses:
+          "200":
+            description: Документ
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Document"
+          "401":
+            $ref: "#/components/responses/Unauthorized"
+          "404":
+            description: Документа нет или он другого проекта
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          "410":
+            description: Срок хранения документа истёк
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+
+    /v1/documents/{id}/file:
+      get:
+        summary: Скачать файл документа
+        parameters:
+          - $ref: "#/components/parameters/DocumentID"
+        responses:
+          "200":
+            description: Файл
+            content:
+              application/pdf:
+                schema:
+                  type: string
+                  format: binary
+          "401":
+            $ref: "#/components/responses/Unauthorized"
+          "404":
+            description: Документа нет или он другого проекта
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          "410":
+            description: Срок хранения документа истёк
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+
   /admin/v1/login:
     post:
       summary: Вход администратора
@@ -778,6 +902,68 @@ components:
           type: string
           example: got string, want number
 
+    GenerateDocumentRequest:
+      type: object
+      required: [ template, data ]
+      additionalProperties: false
+      properties:
+        template:
+          type: string
+          example: opening_protocol
+        locale:
+          type: string
+          description: Обязательна, если у кода несколько локалей; kz принимается как kk
+        version:
+          type: integer
+          description: Зафиксированная версия; без неё — активная
+        format:
+          type: string
+          enum: [ pdf, docx ]
+          default: pdf
+        data:
+          type: object
+          description: Данные по схеме шаблона (GET /v1/templates/{code}/schema)
+        external_id:
+          type: string
+          description: ID сущности в портале
+        requested_by:
+          type: string
+          description: Автор запроса в портале
+
+    Document:
+        type: object
+        required: [ id, public_id, template, locale, version, format, external_id, requested_by, file_sha256, file_size, created_at, expires_at ]
+        properties:
+          id:
+            type: string
+            format: uuid
+          public_id:
+            type: string
+            description: Идентификатор в колонтитуле и на странице проверки (32 hex)
+          template:
+            type: string
+          locale:
+            type: string
+          version:
+            type: integer
+          format:
+            type: string
+            enum: [ pdf, docx ]
+          external_id:
+            type: [ string, "null" ]
+          requested_by:
+            type: [ string, "null" ]
+          file_sha256:
+            type: string
+          file_size:
+            type: integer
+          created_at:
+            type: string
+            format: date-time
+          expires_at:
+            type: string
+            format: date-time
+
     WhoAmI:
       type: object
       required: [id, name, project]
@@ -814,6 +1000,15 @@ components:
                   items:
                     $ref: "#/components/schemas/FieldError"
                 - $ref: "#/components/schemas/SchemaDiff"
+
+  parameters:
+    DocumentID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   responses:
     BadRequest:

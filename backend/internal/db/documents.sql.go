@@ -118,8 +118,11 @@ func (q *Queries) GetDocumentByIdempotencyKey(ctx context.Context, arg GetDocume
 }
 
 const getProjectDocument = `-- name: GetProjectDocument :one
-SELECT id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at FROM documents
-WHERE id = $1 AND project = $2
+SELECT d.id, d.public_id, d.api_client_id, d.project, d.template_id, d.template_version_id, d.external_id, d.requested_by, d.format, d.file_key, d.file_sha256, d.file_size, d.data, d.idempotency_key, d.request_sha256, d.created_at, d.expires_at, t.code AS template_code, t.locale, v.version
+FROM documents d
+         JOIN templates t ON t.id = d.template_id
+         JOIN template_versions v ON v.id = d.template_version_id
+WHERE d.id = $1 AND d.project = $2
 `
 
 type GetProjectDocumentParams struct {
@@ -127,28 +130,38 @@ type GetProjectDocumentParams struct {
 	Project string
 }
 
-// Портал видит только документы своего проекта.
-func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocumentParams) (Document, error) {
+type GetProjectDocumentRow struct {
+	Document     Document
+	TemplateCode string
+	Locale       string
+	Version      int32
+}
+
+// Портал видит только документы своего проекта. Шаблон — кодом и номером версии, как портал его знает.
+func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocumentParams) (GetProjectDocumentRow, error) {
 	row := q.db.QueryRow(ctx, getProjectDocument, arg.ID, arg.Project)
-	var i Document
+	var i GetProjectDocumentRow
 	err := row.Scan(
-		&i.ID,
-		&i.PublicID,
-		&i.APIClientID,
-		&i.Project,
-		&i.TemplateID,
-		&i.TemplateVersionID,
-		&i.ExternalID,
-		&i.RequestedBy,
-		&i.Format,
-		&i.FileKey,
-		&i.FileSha256,
-		&i.FileSize,
-		&i.Data,
-		&i.IdempotencyKey,
-		&i.RequestSha256,
-		&i.CreatedAt,
-		&i.ExpiresAt,
+		&i.Document.ID,
+		&i.Document.PublicID,
+		&i.Document.APIClientID,
+		&i.Document.Project,
+		&i.Document.TemplateID,
+		&i.Document.TemplateVersionID,
+		&i.Document.ExternalID,
+		&i.Document.RequestedBy,
+		&i.Document.Format,
+		&i.Document.FileKey,
+		&i.Document.FileSha256,
+		&i.Document.FileSize,
+		&i.Document.Data,
+		&i.Document.IdempotencyKey,
+		&i.Document.RequestSha256,
+		&i.Document.CreatedAt,
+		&i.Document.ExpiresAt,
+		&i.TemplateCode,
+		&i.Locale,
+		&i.Version,
 	)
 	return i, err
 }

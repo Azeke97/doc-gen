@@ -14,6 +14,7 @@ import (
 
 	"docgen/internal/config"
 	"docgen/internal/db"
+	"docgen/internal/documents"
 	"docgen/internal/gotenberg"
 	"docgen/internal/httpapi"
 	"docgen/internal/storage"
@@ -94,6 +95,7 @@ func main() {
 			Projects:        queries,
 			Templates:       templateService,
 			PortalTemplates: templateService,
+			Documents:       documents.NewService(pool, templateService, pdf, store, cfg.S3.DocumentsBucket),
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,

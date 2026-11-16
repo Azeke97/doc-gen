@@ -33,9 +33,9 @@ DocGen is a standalone service shared by the company's portals: given a template
 
 ## API
 
-- Portal (`/v1`, header `X-API-Key: dg_...`): `GET /whoami`, `GET /templates`, `GET /templates/{code}/schema?locale=&version=`. The project always comes from the key, never from the request.
+- Portal (`/v1`, header `X-API-Key: dg_...`): `GET /whoami`, `GET /templates`, `GET /templates/{code}/schema?locale=&version=`, `POST /documents` (header `Idempotency-Key` required, body up to 5 MiB; 201 new, 200 repeat), `GET /documents/{id}`, `GET /documents/{id}/file`. The project always comes from the key, never from the request; another project's document is `404`, an expired one is `410`; files are checked against their SHA-256 before sending.
 - Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`): projects, templates, version upload (multipart), publish, diff, activate (also rollback), archive, PDF preview of a version on its test data (`GET /versions/{id}/preview`, html engine only).
-- Errors: `{"error": {"code", "message", "details?"}}`; `details` holds per-field errors or a schema diff.
+- Errors: `{"error": {"code", "message", "details?"}}`; `details` holds per-field errors or a schema diff. A JSON body over its limit is `413 request_too_large`.
 
 ## Domain rules
 

@@ -12,6 +12,9 @@ SELECT * FROM documents
 WHERE api_client_id = $1 AND idempotency_key = $2;
 
 -- name: GetProjectDocument :one
--- Портал видит только документы своего проекта.
-SELECT * FROM documents
-WHERE id = $1 AND project = $2;
+-- Портал видит только документы своего проекта. Шаблон — кодом и номером версии, как портал его знает.
+SELECT sqlc.embed(d), t.code AS template_code, t.locale, v.version
+FROM documents d
+         JOIN templates t ON t.id = d.template_id
+         JOIN template_versions v ON v.id = d.template_version_id
+WHERE d.id = $1 AND d.project = $2;

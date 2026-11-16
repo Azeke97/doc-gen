@@ -18,6 +18,7 @@ type Deps struct {
 	Projects        ProjectStore
 	Templates       TemplateService
 	PortalTemplates PortalTemplateService
+	Documents       DocumentService
 }
 
 // NewRouter собирает все маршруты API.
@@ -40,6 +41,9 @@ func NewRouter(deps Deps) http.Handler {
 		r.Get("/whoami", whoamiHandler)
 		r.Get("/templates", listPortalTemplatesHandler(deps.PortalTemplates))
 		r.Get("/templates/{code}/schema", portalSchemaHandler(deps.PortalTemplates))
+		r.Post("/documents", generateDocumentHandler(deps.Documents))
+		r.Get("/documents/{id}", getDocumentHandler(deps.Documents))
+		r.Get("/documents/{id}/file", documentFileHandler(deps.Documents))
 	})
 
 	r.Route("/admin/v1", func(r chi.Router) {

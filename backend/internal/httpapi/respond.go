@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -54,10 +56,19 @@ func writeErrorDetails(w http.ResponseWriter, r *http.Request, status int, code,
 // decodeJSON читает JSON-тело запроса в v. Неизвестные поля и лишние данные — ошибка.
 // При ошибке сам отвечает клиенту 400 и возвращает false.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONBody))
+	return decodeJSONLimit(w, r, v, maxJSONBody)
+}
+
+// decodeJSONLimit — как decodeJSON, но с собственным пределом размера тела; превышение — 413.
+func decodeJSONLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(v); err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			writeError(w, r, http.StatusRequestEntityTooLarge, "request_too_large", fmt.Sprintf("request body must not exceed %d bytes", limit))
+			return false
+		}
 		writeError(w, r, http.StatusBadRequest, "invalid_json", "request body is not valid JSON: "+err.Error())
 		return false
 	}
