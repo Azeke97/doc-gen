@@ -164,60 +164,60 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-    /v1/documents/{id}:
-      get:
-        summary: Метаданные документа своего проекта
-        parameters:
-          - $ref: "#/components/parameters/DocumentID"
-        responses:
-          "200":
-            description: Документ
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/Document"
-          "401":
-            $ref: "#/components/responses/Unauthorized"
-          "404":
-            description: Документа нет или он другого проекта
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/Error"
-          "410":
-            description: Срок хранения документа истёк
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/Error"
+  /v1/documents/{id}:
+    get:
+      summary: Метаданные документа своего проекта
+      parameters:
+        - $ref: "#/components/parameters/DocumentID"
+      responses:
+        "200":
+          description: Документ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Документа нет или он другого проекта
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "410":
+          description: Срок хранения документа истёк
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
-    /v1/documents/{id}/file:
-      get:
-        summary: Скачать файл документа
-        parameters:
-          - $ref: "#/components/parameters/DocumentID"
-        responses:
-          "200":
-            description: Файл
-            content:
-              application/pdf:
-                schema:
-                  type: string
-                  format: binary
-          "401":
-            $ref: "#/components/responses/Unauthorized"
-          "404":
-            description: Документа нет или он другого проекта
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/Error"
-          "410":
-            description: Срок хранения документа истёк
-            content:
-              application/json:
-                schema:
-                  $ref: "#/components/schemas/Error"
+  /v1/documents/{id}/file:
+    get:
+      summary: Скачать файл документа
+      parameters:
+        - $ref: "#/components/parameters/DocumentID"
+      responses:
+        "200":
+          description: Файл
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Документа нет или он другого проекта
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "410":
+          description: Срок хранения документа истёк
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /admin/v1/login:
     post:
