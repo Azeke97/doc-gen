@@ -71,27 +71,24 @@ func (f *fakeAdminAuthStore) DeleteAdminSession(_ context.Context, tokenHash []b
 
 // adminTestServer собирает роутер с подделками и умеет выполнять к нему запросы.
 type adminTestServer struct {
-	t         *testing.T
-	auth      *fakeAdminAuthStore
-	projects  *fakeProjectStore
-	templates *fakeTemplateService
-	router    http.Handler
+	t        *testing.T
+	auth     *fakeAdminAuthStore
+	projects *fakeProjectStore
+	router   http.Handler
 }
 
 func newAdminTestServer(t *testing.T) *adminTestServer {
 	t.Helper()
 
 	s := &adminTestServer{
-		t:         t,
-		auth:      newFakeAdminAuthStore(t, "admin@example.com", "secret-password"),
-		projects:  &fakeProjectStore{projects: map[string]db.Project{}},
-		templates: &fakeTemplateService{},
+		t:        t,
+		auth:     newFakeAdminAuthStore(t, "admin@example.com", "secret-password"),
+		projects: &fakeProjectStore{projects: map[string]db.Project{}},
 	}
 	s.router = NewRouter(Deps{
 		AdminAuth:       s.auth,
 		AdminSessionTTL: time.Hour,
 		Projects:        s.projects,
-		Templates:       s.templates,
 	})
 
 	return s

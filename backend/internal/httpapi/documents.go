@@ -36,9 +36,8 @@ var generateFormLimits = map[string]int64{
 type DocumentService interface {
 	GenerateDOCX(ctx context.Context, client db.APIClient, req documents.DocxRequest, trace string) (documents.Generated, error)
 	CheckTemplate(file []byte) ([]docx.Variable, error)
-	Get(ctx context.Context, project string, id uuid.UUID) (db.GetProjectDocumentRow, error)
-	File(ctx context.Context, project string, id uuid.UUID) (db.GetProjectDocumentRow, []byte, error)
-	Verify(ctx context.Context, publicID string) (db.GetDocumentByPublicIDRow, error)
+	Get(ctx context.Context, project string, id uuid.UUID) (db.Document, error)
+	File(ctx context.Context, project string, id uuid.UUID) (db.Document, []byte, error)
 }
 
 // JournalStore — запись в журнал запросов на генерацию.
@@ -49,7 +48,7 @@ type JournalStore interface {
 type documentResponse struct {
 	ID             uuid.UUID `json:"id"`
 	TemplateName   string    `json:"template_name"`
-	TemplateSHA256 *string   `json:"template_sha256"`
+	TemplateSHA256 string    `json:"template_sha256"`
 	Format         string    `json:"format"`
 	ExternalID     *string   `json:"external_id"`
 	RequestedBy    *string   `json:"requested_by"`
@@ -59,23 +58,19 @@ type documentResponse struct {
 	ExpiresAt      time.Time `json:"expires_at"`
 }
 
-func toDocumentResponse(d db.GetProjectDocumentRow) documentResponse {
-	resp := documentResponse{
-		ID:           d.Document.ID,
-		TemplateName: d.DisplayTemplateName,
-		Format:       d.Document.Format,
-		ExternalID:   d.Document.ExternalID,
-		RequestedBy:  d.Document.RequestedBy,
-		FileSHA256:   hex.EncodeToString(d.Document.FileSha256),
-		FileSize:     d.Document.FileSize,
-		CreatedAt:    d.Document.CreatedAt,
-		ExpiresAt:    d.Document.ExpiresAt,
+func toDocumentResponse(d db.Document) documentResponse {
+	return documentResponse{
+		ID:             d.ID,
+		TemplateName:   d.TemplateName,
+		TemplateSHA256: hex.EncodeToString(d.TemplateSha256),
+		Format:         d.Format,
+		ExternalID:     d.ExternalID,
+		RequestedBy:    d.RequestedBy,
+		FileSHA256:     hex.EncodeToString(d.FileSha256),
+		FileSize:       d.FileSize,
+		CreatedAt:      d.CreatedAt,
+		ExpiresAt:      d.ExpiresAt,
 	}
-	if d.Document.TemplateSha256 != nil {
-		sum := hex.EncodeToString(d.Document.TemplateSha256)
-		resp.TemplateSHA256 = &sum
-	}
-	return resp
 }
 
 // apiError — ошибка, как её увидит клиент и как она попадёт в журнал.
@@ -236,7 +231,7 @@ func documentFileHandler(svc DocumentService) http.HandlerFunc {
 			return
 		}
 
-		writeFile(w, r, http.StatusOK, doc.Document.Format, fmt.Sprintf("%s.%s", doc.Document.PublicID, doc.Document.Format), content)
+		writeFile(w, r, http.StatusOK, doc.Format, fmt.Sprintf("%s.%s", doc.PublicID, doc.Format), content)
 	}
 }
 
@@ -281,11 +276,6 @@ func documentError(r *http.Request, err error) *apiError {
 		slog.ErrorContext(r.Context(), "document operation", "err", err)
 		return &apiError{status: http.StatusInternalServerError, code: "internal", message: "internal server error"}
 	}
-}
-
-// writeDocumentError — для обработчиков, которым не нужен журнал (страница проверки).
-func writeDocumentError(w http.ResponseWriter, r *http.Request, err error) {
-	documentError(r, err).write(w, r)
 }
 
 // recordGeneration пишет запись журнала. Сбой журнала не должен ломать выпуск документа:

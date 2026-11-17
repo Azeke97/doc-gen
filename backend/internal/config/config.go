@@ -26,11 +26,12 @@ type DBConfig struct {
 
 // S3Config содержит настройки S3-совместимого хранилища файлов (MinIO).
 type S3Config struct {
-	Endpoint        string `env:"ENDPOINT,required"`
-	AccessKey       string `env:"ACCESS_KEY,required"`
-	SecretKey       string `env:"SECRET_KEY,required"`
-	UseSSL          bool   `env:"USE_SSL" envDefault:"false"`
-	Region          string `env:"REGION" envDefault:"us-east-1"`
+	Endpoint  string `env:"ENDPOINT,required"`
+	AccessKey string `env:"ACCESS_KEY,required"`
+	SecretKey string `env:"SECRET_KEY,required"`
+	UseSSL    bool   `env:"USE_SSL" envDefault:"false"`
+	Region    string `env:"REGION" envDefault:"us-east-1"`
+	// TemplatesBucket — копии шаблонов, по которым выпущены документы.
 	TemplatesBucket string `env:"TEMPLATES_BUCKET" envDefault:"docgen-templates"`
 	DocumentsBucket string `env:"DOCUMENTS_BUCKET" envDefault:"docgen-documents"`
 }
@@ -45,8 +46,6 @@ type GotenbergConfig struct {
 
 // DocumentsConfig содержит настройки выпуска документов.
 type DocumentsConfig struct {
-	// VerifyURL — адрес публичной страницы проверки; к нему приписывается public_id документа.
-	VerifyURL string `env:"VERIFY_URL,required"`
 	// CleanupInterval — как часто удалять документы с истёкшим сроком хранения; 0 — не удалять.
 	CleanupInterval time.Duration `env:"CLEANUP_INTERVAL" envDefault:"1h"`
 	CleanupBatch    int32         `env:"CLEANUP_BATCH" envDefault:"100"`

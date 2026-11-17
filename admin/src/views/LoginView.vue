@@ -18,7 +18,7 @@ async function submit() {
   try {
     await api.login(form.email, form.password)
     await loadAdmin()
-    const next = typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/templates'
+    const next = typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/'
     await router.replace(next)
   } catch (e) {
     error.value = e instanceof ApiError && e.status === 401 ? 'Неверный email или пароль' : String((e as Error).message)

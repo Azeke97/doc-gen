@@ -33,7 +33,8 @@ services:
     image: gotenberg/gotenberg:8.39.0
     ports:
       - "127.0.0.1:${GOTENBERG_PORT}:3000"
-    # Документы самодостаточны: Chromium не ходит в сеть, не выполняет JavaScript, вебхуки не нужны.
+    # Сервис использует только LibreOffice (DOCX → PDF). Chromium оставлен в образе, но закрыт:
+    # без сети и JavaScript. Вебхуки не нужны.
     command:
       - gotenberg
       - --chromium-deny-private-ips

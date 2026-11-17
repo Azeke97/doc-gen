@@ -13,16 +13,17 @@ func TestGetAndFile(t *testing.T) {
 	e := newTestEnv(t)
 	ctx := t.Context()
 
-	created, _, err := e.documents.Generate(ctx, e.client, request("read"), "")
+	gen, err := e.documents.GenerateDOCX(ctx, e.client, docxRequest(t, "read", "pdf"), "")
 	if err != nil {
-		t.Fatalf("Generate: %v", err)
+		t.Fatalf("GenerateDOCX: %v", err)
 	}
+	created := gen.Document
 
 	doc, err := e.documents.Get(ctx, e.client.Project, created.ID)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if doc.DisplayTemplateName != "opening_protocol" || doc.Document.ID != created.ID {
+	if doc.TemplateName != "opening_protocol" || doc.ID != created.ID {
 		t.Errorf("doc = %+v", doc)
 	}
 

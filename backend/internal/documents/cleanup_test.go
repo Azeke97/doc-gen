@@ -14,8 +14,8 @@ func TestDeleteExpired(t *testing.T) {
 	ctx := t.Context()
 
 	for i := range 3 {
-		if _, _, err := e.documents.Generate(ctx, e.client, request(fmt.Sprintf("cleanup-%d", i)), ""); err != nil {
-			t.Fatalf("Generate %d: %v", i, err)
+		if _, err := e.documents.GenerateDOCX(ctx, e.client, docxRequest(t, fmt.Sprintf("cleanup-%d", i), "docx"), ""); err != nil {
+			t.Fatalf("GenerateDOCX %d: %v", i, err)
 		}
 	}
 	var keys []string

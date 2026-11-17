@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -35,12 +34,10 @@ func TestNewPublicID(t *testing.T) {
 	}
 }
 
-// fixture — всё, на что ссылается документ: проект, ключ портала, шаблон и его версии.
+// fixture — всё, на что ссылается документ: проект, ключ портала и копия шаблона.
 type fixture struct {
-	client    db.APIClient
-	tmpl      db.Template
-	published db.TemplateVersion
-	draft     db.TemplateVersion
+	client   db.APIClient
+	template []byte // SHA-256 копии шаблона
 }
 
 // newTestTx открывает транзакцию, которая откатывается в конце теста, и заполняет её данными.
@@ -76,48 +73,31 @@ func newTestTx(t *testing.T) (pgx.Tx, fixture) {
 	}); err != nil {
 		t.Fatalf("create client: %v", err)
 	}
-	if f.tmpl, err = q.CreateTemplate(ctx, db.CreateTemplateParams{
-		Project: project, Code: "opening_protocol", Locale: "bilingual", Name: "Протокол", Engine: "html", RetentionDays: 30,
-	}); err != nil {
-		t.Fatalf("create template: %v", err)
+	sum := sha256.Sum256([]byte(project))
+	f.template = sum[:]
+	if err := q.LockTemplateFile(ctx, db.LockTemplateFileParams{Sha256: f.template, FileKey: project + ".docx", Size: 100}); err != nil {
+		t.Fatalf("template copy: %v", err)
 	}
-
-	newVersion := func(n int32) db.TemplateVersion {
-		v, err := q.CreateTemplateVersion(ctx, db.CreateTemplateVersionParams{
-			TemplateID: f.tmpl.ID, Version: n, FileKey: "test/key", FileSha256: make([]byte, 32),
-			DataSchema: json.RawMessage(`{"type":"object"}`), CreatedBy: "test",
-		})
-		if err != nil {
-			t.Fatalf("create version: %v", err)
-		}
-		return v
-	}
-	f.published = newVersion(1)
-	by := "test"
-	if f.published, err = q.PublishVersion(ctx, db.PublishVersionParams{ID: f.published.ID, PublishedBy: &by}); err != nil {
-		t.Fatalf("publish: %v", err)
-	}
-	f.draft = newVersion(2)
 
 	return tx, f
 }
 
-func documentParams(f fixture, v db.TemplateVersion, key string) db.CreateDocumentParams {
+func documentParams(f fixture, key string) db.CreateDocxDocumentParams {
 	sum := sha256.Sum256([]byte(key))
-	return db.CreateDocumentParams{
-		PublicID:          NewPublicID(),
-		APIClientID:       f.client.ID,
-		Project:           f.client.Project,
-		TemplateID:        &f.tmpl.ID,
-		TemplateVersionID: &v.ID,
-		Format:            "pdf",
-		FileKey:           "documents/test.pdf",
-		FileSha256:        sum[:],
-		FileSize:          1024,
-		Data:              json.RawMessage(`{"number":"0001"}`),
-		IdempotencyKey:    key,
-		RequestSha256:     sum[:],
-		ExpiresAt:         time.Now().Add(30 * 24 * time.Hour),
+	return db.CreateDocxDocumentParams{
+		PublicID:       NewPublicID(),
+		APIClientID:    f.client.ID,
+		Project:        f.client.Project,
+		TemplateName:   "opening_protocol",
+		TemplateSha256: f.template,
+		Format:         "pdf",
+		FileKey:        "documents/test.pdf",
+		FileSha256:     sum[:],
+		FileSize:       1024,
+		Data:           json.RawMessage(`{"number":"0001"}`),
+		IdempotencyKey: key,
+		RequestSha256:  sum[:],
+		ExpiresAt:      time.Now().Add(30 * 24 * time.Hour),
 	}
 }
 
@@ -139,9 +119,9 @@ func TestDocumentConstraints(t *testing.T) {
 	ctx := t.Context()
 	q := db.New(tx)
 
-	doc, err := q.CreateDocument(ctx, documentParams(f, f.published, "key-1"))
+	doc, err := q.CreateDocxDocument(ctx, documentParams(f, "key-1"))
 	if err != nil {
-		t.Fatalf("CreateDocument: %v", err)
+		t.Fatalf("CreateDocxDocument: %v", err)
 	}
 
 	got, err := q.GetDocumentByIdempotencyKey(ctx, db.GetDocumentByIdempotencyKeyParams{APIClientID: f.client.ID, IdempotencyKey: "key-1"})
@@ -162,27 +142,25 @@ func TestDocumentConstraints(t *testing.T) {
 		{
 			name: "same idempotency key",
 			fn: func(sp pgx.Tx) error {
-				_, err := db.New(sp).CreateDocument(ctx, documentParams(f, f.published, "key-1"))
+				_, err := db.New(sp).CreateDocxDocument(ctx, documentParams(f, "key-1"))
 				return err
 			},
 			want: pgerr.IsUniqueViolation,
 		},
 		{
-			name: "draft version",
+			name: "unknown template copy",
 			fn: func(sp pgx.Tx) error {
-				_, err := db.New(sp).CreateDocument(ctx, documentParams(f, f.draft, "key-2"))
+				p := documentParams(f, "key-2")
+				p.TemplateSha256 = make([]byte, 32)
+				_, err := db.New(sp).CreateDocxDocument(ctx, p)
 				return err
 			},
-			want: errorContains("is not published"),
+			want: pgerr.IsForeignKeyViolation,
 		},
 		{
-			name: "version of another template",
+			name: "template copy in use cannot be deleted",
 			fn: func(sp pgx.Tx) error {
-				p := documentParams(f, f.published, "key-3")
-				other := uuid.New()
-				p.TemplateID = &other
-				_, err := db.New(sp).CreateDocument(ctx, p)
-				return err
+				return db.New(sp).DeleteTemplateFiles(ctx, [][]byte{f.template})
 			},
 			want: pgerr.IsForeignKeyViolation,
 		},

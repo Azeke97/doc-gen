@@ -50,25 +50,23 @@ type AuditLog struct {
 }
 
 type Document struct {
-	ID                uuid.UUID
-	PublicID          string
-	APIClientID       uuid.UUID
-	Project           string
-	TemplateID        *uuid.UUID
-	TemplateVersionID *uuid.UUID
-	ExternalID        *string
-	RequestedBy       *string
-	Format            string
-	FileKey           string
-	FileSha256        []byte
-	FileSize          int64
-	Data              json.RawMessage
-	IdempotencyKey    string
-	RequestSha256     []byte
-	CreatedAt         time.Time
-	ExpiresAt         time.Time
-	TemplateName      *string
-	TemplateSha256    []byte
+	ID             uuid.UUID
+	PublicID       string
+	APIClientID    uuid.UUID
+	Project        string
+	ExternalID     *string
+	RequestedBy    *string
+	Format         string
+	FileKey        string
+	FileSha256     []byte
+	FileSize       int64
+	Data           json.RawMessage
+	IdempotencyKey string
+	RequestSha256  []byte
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
+	TemplateName   string
+	TemplateSha256 []byte
 }
 
 type GenerationLog struct {
@@ -101,39 +99,9 @@ type Project struct {
 	RetentionDays int32
 }
 
-type Template struct {
-	ID              uuid.UUID
-	Project         string
-	Code            string
-	Locale          string
-	Name            string
-	Engine          string
-	Status          string
-	RetentionDays   int32
-	ActiveVersionID *uuid.UUID
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-}
-
 type TemplateFile struct {
 	Sha256    []byte
 	FileKey   string
 	Size      int64
 	CreatedAt time.Time
-}
-
-type TemplateVersion struct {
-	ID          uuid.UUID
-	TemplateID  uuid.UUID
-	Version     int32
-	Status      string
-	FileKey     string
-	FileSha256  []byte
-	DataSchema  json.RawMessage
-	TestData    json.RawMessage
-	CreatedBy   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	PublishedBy *string
-	PublishedAt *time.Time
 }

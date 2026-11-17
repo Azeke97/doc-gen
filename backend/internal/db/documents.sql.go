@@ -13,77 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const createDocument = `-- name: CreateDocument :one
-INSERT INTO documents (
-    public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by,
-    format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, expires_at
-) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-         )
-RETURNING id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256
-`
-
-type CreateDocumentParams struct {
-	PublicID          string
-	APIClientID       uuid.UUID
-	Project           string
-	TemplateID        *uuid.UUID
-	TemplateVersionID *uuid.UUID
-	ExternalID        *string
-	RequestedBy       *string
-	Format            string
-	FileKey           string
-	FileSha256        []byte
-	FileSize          int64
-	Data              json.RawMessage
-	IdempotencyKey    string
-	RequestSha256     []byte
-	ExpiresAt         time.Time
-}
-
-func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error) {
-	row := q.db.QueryRow(ctx, createDocument,
-		arg.PublicID,
-		arg.APIClientID,
-		arg.Project,
-		arg.TemplateID,
-		arg.TemplateVersionID,
-		arg.ExternalID,
-		arg.RequestedBy,
-		arg.Format,
-		arg.FileKey,
-		arg.FileSha256,
-		arg.FileSize,
-		arg.Data,
-		arg.IdempotencyKey,
-		arg.RequestSha256,
-		arg.ExpiresAt,
-	)
-	var i Document
-	err := row.Scan(
-		&i.ID,
-		&i.PublicID,
-		&i.APIClientID,
-		&i.Project,
-		&i.TemplateID,
-		&i.TemplateVersionID,
-		&i.ExternalID,
-		&i.RequestedBy,
-		&i.Format,
-		&i.FileKey,
-		&i.FileSha256,
-		&i.FileSize,
-		&i.Data,
-		&i.IdempotencyKey,
-		&i.RequestSha256,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-		&i.TemplateName,
-		&i.TemplateSha256,
-	)
-	return i, err
-}
-
 const createDocxDocument = `-- name: CreateDocxDocument :one
 INSERT INTO documents (
     public_id, api_client_id, project, template_name, template_sha256, external_id, requested_by,
@@ -91,14 +20,14 @@ INSERT INTO documents (
 ) VALUES (
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
          )
-RETURNING id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256
+RETURNING id, public_id, api_client_id, project, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256
 `
 
 type CreateDocxDocumentParams struct {
 	PublicID       string
 	APIClientID    uuid.UUID
 	Project        string
-	TemplateName   *string
+	TemplateName   string
 	TemplateSha256 []byte
 	ExternalID     *string
 	RequestedBy    *string
@@ -137,8 +66,6 @@ func (q *Queries) CreateDocxDocument(ctx context.Context, arg CreateDocxDocument
 		&i.PublicID,
 		&i.APIClientID,
 		&i.Project,
-		&i.TemplateID,
-		&i.TemplateVersionID,
 		&i.ExternalID,
 		&i.RequestedBy,
 		&i.Format,
@@ -167,7 +94,7 @@ func (q *Queries) DeleteDocuments(ctx context.Context, ids []uuid.UUID) error {
 }
 
 const getDocumentByIdempotencyKey = `-- name: GetDocumentByIdempotencyKey :one
-SELECT id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256 FROM documents
+SELECT id, public_id, api_client_id, project, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256 FROM documents
 WHERE api_client_id = $1 AND idempotency_key = $2
 `
 
@@ -184,8 +111,6 @@ func (q *Queries) GetDocumentByIdempotencyKey(ctx context.Context, arg GetDocume
 		&i.PublicID,
 		&i.APIClientID,
 		&i.Project,
-		&i.TemplateID,
-		&i.TemplateVersionID,
 		&i.ExternalID,
 		&i.RequestedBy,
 		&i.Format,
@@ -203,48 +128,9 @@ func (q *Queries) GetDocumentByIdempotencyKey(ctx context.Context, arg GetDocume
 	return i, err
 }
 
-const getDocumentByPublicID = `-- name: GetDocumentByPublicID :one
-SELECT d.public_id, d.format, d.file_sha256, d.file_size, d.created_at, d.expires_at,
-       t.name AS template_name, p.name AS project_name
-FROM documents d
-         JOIN templates t ON t.id = d.template_id
-         JOIN projects p ON p.code = d.project
-WHERE d.public_id = $1
-`
-
-type GetDocumentByPublicIDRow struct {
-	PublicID     string
-	Format       string
-	FileSha256   []byte
-	FileSize     int64
-	CreatedAt    time.Time
-	ExpiresAt    time.Time
-	TemplateName string
-	ProjectName  string
-}
-
-// Для публичной проверки: только то, что подтверждает подлинность, без данных документа.
-func (q *Queries) GetDocumentByPublicID(ctx context.Context, publicID string) (GetDocumentByPublicIDRow, error) {
-	row := q.db.QueryRow(ctx, getDocumentByPublicID, publicID)
-	var i GetDocumentByPublicIDRow
-	err := row.Scan(
-		&i.PublicID,
-		&i.Format,
-		&i.FileSha256,
-		&i.FileSize,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-		&i.TemplateName,
-		&i.ProjectName,
-	)
-	return i, err
-}
-
 const getProjectDocument = `-- name: GetProjectDocument :one
-SELECT d.id, d.public_id, d.api_client_id, d.project, d.template_id, d.template_version_id, d.external_id, d.requested_by, d.format, d.file_key, d.file_sha256, d.file_size, d.data, d.idempotency_key, d.request_sha256, d.created_at, d.expires_at, d.template_name, d.template_sha256, COALESCE(d.template_name, t.code)::text AS display_template_name
-FROM documents d
-         LEFT JOIN templates t ON t.id = d.template_id
-WHERE d.id = $1 AND d.project = $2
+SELECT id, public_id, api_client_id, project, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256 FROM documents
+WHERE id = $1 AND project = $2
 `
 
 type GetProjectDocumentParams struct {
@@ -252,37 +138,28 @@ type GetProjectDocumentParams struct {
 	Project string
 }
 
-type GetProjectDocumentRow struct {
-	Document            Document
-	DisplayTemplateName string
-}
-
-// Портал видит только документы своего проекта. Имя шаблона — как его назвал портал;
-// у документов старого реестра — код шаблона.
-func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocumentParams) (GetProjectDocumentRow, error) {
+// Портал видит только документы своего проекта.
+func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocumentParams) (Document, error) {
 	row := q.db.QueryRow(ctx, getProjectDocument, arg.ID, arg.Project)
-	var i GetProjectDocumentRow
+	var i Document
 	err := row.Scan(
-		&i.Document.ID,
-		&i.Document.PublicID,
-		&i.Document.APIClientID,
-		&i.Document.Project,
-		&i.Document.TemplateID,
-		&i.Document.TemplateVersionID,
-		&i.Document.ExternalID,
-		&i.Document.RequestedBy,
-		&i.Document.Format,
-		&i.Document.FileKey,
-		&i.Document.FileSha256,
-		&i.Document.FileSize,
-		&i.Document.Data,
-		&i.Document.IdempotencyKey,
-		&i.Document.RequestSha256,
-		&i.Document.CreatedAt,
-		&i.Document.ExpiresAt,
-		&i.Document.TemplateName,
-		&i.Document.TemplateSha256,
-		&i.DisplayTemplateName,
+		&i.ID,
+		&i.PublicID,
+		&i.APIClientID,
+		&i.Project,
+		&i.ExternalID,
+		&i.RequestedBy,
+		&i.Format,
+		&i.FileKey,
+		&i.FileSha256,
+		&i.FileSize,
+		&i.Data,
+		&i.IdempotencyKey,
+		&i.RequestSha256,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.TemplateName,
+		&i.TemplateSha256,
 	)
 	return i, err
 }

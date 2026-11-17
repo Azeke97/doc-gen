@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 // maxJSONBody — предельный размер JSON-тела запроса.
@@ -78,4 +81,15 @@ func decodeJSONLimit(w http.ResponseWriter, r *http.Request, v any, limit int64)
 	}
 
 	return true
+}
+
+// parseUUIDParam читает UUID из параметра маршрута. При ошибке сам отвечает 400.
+func parseUUIDParam(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {
+	id, err := uuid.Parse(chi.URLParam(r, name))
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_"+name, name+" must be a UUID")
+		return uuid.UUID{}, false
+	}
+
+	return id, true
 }

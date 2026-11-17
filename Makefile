@@ -74,7 +74,7 @@ migrate-status: ## Статус миграций
 	cd $(BACKEND) && go run ./cmd/migrate status
 
 .PHONY: migration
-migration: ## Создать миграцию: make migration name=create_templates
+migration: ## Создать миграцию: make migration name=create_something
 	@test -n "$(name)" || (echo "usage: make migration name=create_something" && exit 1)
 	cd $(BACKEND) && goose -dir migrations -s create $(name) sql
 

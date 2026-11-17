@@ -1,4 +1,4 @@
-// Package gotenberg превращает DOCX (LibreOffice) и HTML (Chromium) в PDF через Gotenberg.
+// Package gotenberg превращает DOCX в PDF через Gotenberg (LibreOffice).
 package gotenberg
 
 import (
@@ -26,21 +26,6 @@ var (
 
 // DefaultConcurrency — сколько конвертаций одновременно уходит в Gotenberg, если не задано иное.
 const DefaultConcurrency = 4
-
-// Имена файлов, которые Gotenberg понимает особым образом.
-const (
-	indexFile  = "index.html"
-	headerFile = "header.html"
-	footerFile = "footer.html"
-)
-
-// Document — то, что нужно превратить в PDF.
-type Document struct {
-	HTML   []byte
-	Header []byte            // необязательно; повторяется на каждой странице
-	Footer []byte            // необязательно; .pageNumber и .totalPages заполняются номерами страниц
-	Assets map[string][]byte // картинки и шрифты, на которые HTML ссылается по имени файла
-}
 
 // Client — клиент Gotenberg.
 type Client struct {
@@ -93,16 +78,6 @@ func (c *Client) ConvertDOCX(ctx context.Context, docx []byte, trace string) ([]
 	return c.convert(ctx, "/forms/libreoffice/convert", &buf, w.FormDataContentType(), trace)
 }
 
-// ConvertHTML возвращает PDF. Размер страницы и поля задаёт шаблон через CSS @page,
-// без него страница — A4. trace уходит в логи Gotenberg, чтобы связать их с нашим запросом.
-func (c *Client) ConvertHTML(ctx context.Context, doc Document, trace string) ([]byte, error) {
-	body, contentType, err := buildForm(doc)
-	if err != nil {
-		return nil, err
-	}
-	return c.convert(ctx, "/forms/chromium/convert/html", body, contentType, trace)
-}
-
 // convert отправляет форму в маршрут Gotenberg и возвращает PDF. Ждёт свободный слот,
 // пока не истечёт ctx или таймаут клиента.
 func (c *Client) convert(ctx context.Context, route string, body io.Reader, contentType, trace string) ([]byte, error) {
@@ -153,68 +128,4 @@ func (c *Client) convert(ctx context.Context, route string, body io.Reader, cont
 	}
 
 	return pdf, nil
-}
-
-// buildForm собирает multipart-форму запроса к Gotenberg.
-func buildForm(doc Document) (*bytes.Buffer, string, error) {
-	if len(doc.HTML) == 0 {
-		return nil, "", fmt.Errorf("%w: html is empty", ErrConvert)
-	}
-
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-
-	files := map[string][]byte{indexFile: doc.HTML}
-	if len(doc.Header) > 0 {
-		files[headerFile] = doc.Header
-	}
-	if len(doc.Footer) > 0 {
-		files[footerFile] = doc.Footer
-	}
-	for name, content := range doc.Assets {
-		if err := checkAssetName(name); err != nil {
-			return nil, "", err
-		}
-		files[name] = content
-	}
-
-	for name, content := range files {
-		part, err := w.CreateFormFile("files", name)
-		if err != nil {
-			return nil, "", fmt.Errorf("add %s: %w", name, err)
-		}
-		if _, err := part.Write(content); err != nil {
-			return nil, "", fmt.Errorf("add %s: %w", name, err)
-		}
-	}
-
-	fields := map[string]string{
-		"paperWidth":                  "210mm",
-		"paperHeight":                 "297mm",
-		"preferCssPageSize":           "true",
-		"printBackground":             "true",
-		"failOnResourceLoadingFailed": "true",
-	}
-	for name, value := range fields {
-		if err := w.WriteField(name, value); err != nil {
-			return nil, "", fmt.Errorf("add field %s: %w", name, err)
-		}
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, "", fmt.Errorf("close form: %w", err)
-	}
-
-	return &buf, w.FormDataContentType(), nil
-}
-
-// checkAssetName не даёт файлу затереть index/header/footer или указать путь.
-func checkAssetName(name string) error {
-	switch {
-	case name == "" || strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, "."):
-		return fmt.Errorf("%w: invalid asset name %q", ErrConvert, name)
-	case name == indexFile || name == headerFile || name == footerFile:
-		return fmt.Errorf("%w: asset name %q is reserved", ErrConvert, name)
-	}
-	return nil
 }

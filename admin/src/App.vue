@@ -7,7 +7,7 @@ import { currentAdmin, logout } from './session'
 const route = useRoute()
 const router = useRouter()
 
-const section = computed(() => (route.path.startsWith('/projects') ? '/projects' : '/templates'))
+const section = computed(() => '/' + (route.path.split('/')[1] ?? ''))
 
 async function onLogout() {
   await logout()
@@ -19,9 +19,8 @@ async function onLogout() {
   <el-container v-if="currentAdmin && !route.meta.public" direction="vertical">
     <header class="top">
       <div class="top-inner">
-        <router-link to="/templates" class="brand">DocGen</router-link>
+        <router-link to="/" class="brand">DocGen</router-link>
         <el-menu mode="horizontal" :default-active="section" router :ellipsis="false" class="nav">
-          <el-menu-item index="/templates">Шаблоны</el-menu-item>
           <el-menu-item index="/projects">Проекты</el-menu-item>
         </el-menu>
         <div class="user">

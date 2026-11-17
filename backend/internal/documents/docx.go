@@ -150,7 +150,7 @@ func (s *Service) GenerateDOCX(ctx context.Context, client db.APIClient, req Doc
 			PublicID:       publicID,
 			APIClientID:    client.ID,
 			Project:        client.Project,
-			TemplateName:   &req.TemplateName,
+			TemplateName:   req.TemplateName,
 			TemplateSha256: templateSum[:],
 			ExternalID:     &req.ExternalID,
 			RequestedBy:    &req.RequestedBy,

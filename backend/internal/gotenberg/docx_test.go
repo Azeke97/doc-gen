@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -171,4 +172,13 @@ func TestConvertDOCXIntegration(t *testing.T) {
 		t.Errorf("result is not a PDF: %q", pdf[:min(len(pdf), 20)])
 	}
 
+}
+
+func TestConvertDOCXLimitsPDF(t *testing.T) {
+	_, c := newFake(t, http.StatusOK, strings.Repeat("x", 100))
+	c.maxPDF = 10
+
+	if _, err := c.ConvertDOCX(t.Context(), []byte("x"), ""); !errors.Is(err, ErrConvert) {
+		t.Errorf("err = %v, want ErrConvert", err)
+	}
 }

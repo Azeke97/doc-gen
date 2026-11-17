@@ -18,7 +18,6 @@ import (
 	"docgen/internal/gotenberg"
 	"docgen/internal/httpapi"
 	"docgen/internal/storage"
-	"docgen/internal/templates"
 )
 
 func main() {
@@ -83,9 +82,8 @@ func main() {
 
 	queries := db.New(pool)
 	pdf := gotenberg.New(cfg.Gotenberg.URL, cfg.Gotenberg.Timeout).WithConcurrency(cfg.Gotenberg.MaxConcurrency)
-	templateService := templates.NewService(pool, store, cfg.S3.TemplatesBucket, pdf, cfg.Documents.VerifyURL)
-	documentService := documents.NewService(pool, templateService, pdf, store,
-		documents.Buckets{Documents: cfg.S3.DocumentsBucket, Templates: cfg.S3.TemplatesBucket}, cfg.Documents.VerifyURL)
+	documentService := documents.NewService(pool, pdf, store,
+		documents.Buckets{Documents: cfg.S3.DocumentsBucket, Templates: cfg.S3.TemplatesBucket})
 
 	if cfg.Documents.CleanupInterval > 0 {
 		go documentService.RunCleanup(ctx, cfg.Documents.CleanupInterval, cfg.Documents.CleanupBatch)
@@ -105,8 +103,6 @@ func main() {
 			AdminAuth:       queries,
 			AdminSessionTTL: cfg.Admin.SessionTTL,
 			Projects:        queries,
-			Templates:       templateService,
-			PortalTemplates: templateService,
 			Documents:       documentService,
 			Journal:         queries,
 			AdminUI:         adminUI,

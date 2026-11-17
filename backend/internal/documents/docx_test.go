@@ -95,8 +95,8 @@ func TestGenerateDOCX(t *testing.T) {
 		t.Fatalf("GenerateDOCX: %v", err)
 	}
 	doc := gen.Document
-	if !gen.Created || doc.Format != "docx" || *doc.TemplateName != "opening_protocol" || *doc.ExternalID != "lot:209092" ||
-		*doc.RequestedBy != "user-17" || doc.TemplateVersionID != nil {
+	if !gen.Created || doc.Format != "docx" || doc.TemplateName != "opening_protocol" || *doc.ExternalID != "lot:209092" ||
+		*doc.RequestedBy != "user-17" {
 		t.Errorf("doc = %+v", doc)
 	}
 	if text := documentText(t, gen.File); !strings.Contains(text, "Протокол № 0001") || !strings.Contains(text, "6 000 000.00") {
@@ -146,7 +146,7 @@ func TestGenerateDOCX(t *testing.T) {
 
 	// Метаданные для портала.
 	view, err := e.documents.Get(ctx, e.client.Project, doc.ID)
-	if err != nil || view.DisplayTemplateName != "opening_protocol" {
+	if err != nil || view.TemplateName != "opening_protocol" {
 		t.Errorf("Get = %+v, %v", view, err)
 	}
 }

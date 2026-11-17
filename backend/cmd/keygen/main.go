@@ -19,7 +19,7 @@ import (
 
 func main() {
 	name := flag.String("name", "", "имя клиента для людей")
-	project := flag.String("project", "", "код проекта, к шаблонам которого ключ дает доступ")
+	project := flag.String("project", "", "код проекта (портала), от имени которого ключ выпускает документы")
 	flag.Parse()
 
 	if *name == "" || *project == "" {

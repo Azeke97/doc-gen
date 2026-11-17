@@ -61,7 +61,7 @@ onMounted(load)
       <h1>Проекты</h1>
       <el-button type="primary" @click="openCreate">Новый проект</el-button>
     </div>
-    <p class="muted">Проект — портал, который выпускает документы. Шаблоны и API-ключи принадлежат проекту.</p>
+    <p class="muted">Проект — портал, который выпускает документы: у него свои API-ключи, срок хранения документов и записи в журнале.</p>
 
     <el-table v-loading="loading" :data="projects" empty-text="Проектов пока нет">
       <el-table-column prop="code" label="Код" width="220">

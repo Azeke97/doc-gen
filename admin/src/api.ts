@@ -15,51 +15,6 @@ export interface Project {
   created_at: string
 }
 
-export type Locale = 'ru' | 'kk' | 'bilingual'
-export type Engine = 'html' | 'docx'
-
-export interface Template {
-  id: string
-  project: string
-  code: string
-  locale: Locale
-  name: string
-  engine: Engine
-  status: 'draft' | 'active' | 'archived'
-  retention_days: number
-  active_version_id: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface TemplateVersion {
-  id: string
-  template_id: string
-  version: number
-  status: 'draft' | 'published'
-  file_sha256: string
-  data_schema: unknown
-  test_data: unknown
-  created_by: string
-  created_at: string
-  updated_at: string
-  published_by: string | null
-  published_at: string | null
-}
-
-export interface SchemaChange {
-  path: string
-  kind: string
-  breaking: boolean
-  message: string
-}
-
-export interface SchemaDiff {
-  base_version: number | null
-  breaking: boolean
-  changes: SchemaChange[]
-}
-
 export interface FieldError {
   field: string
   message: string
@@ -80,9 +35,6 @@ export class ApiError extends Error {
     return Array.isArray(this.details) ? (this.details as FieldError[]) : []
   }
 
-  get diff(): SchemaDiff | undefined {
-    return this.code === 'breaking_changes' ? (this.details as SchemaDiff) : undefined
-  }
 }
 
 let onUnauthorized: () => void = () => {}
@@ -144,8 +96,6 @@ async function blob(path: string): Promise<{ blob: Blob; filename: string }> {
   return { blob: await res.blob(), filename: match?.[1] ?? 'file' }
 }
 
-const confirmQuery = (confirm: boolean) => (confirm ? '?confirm_breaking=true' : '')
-
 export const api = {
   isLoggedIn: () => getToken() !== null,
 
@@ -164,35 +114,6 @@ export const api = {
 
   projects: () => call<Project[]>('GET', '/projects'),
   createProject: (p: { code: string; name: string }) => call<Project>('POST', '/projects', p),
-
-  templates: (project?: string) =>
-    call<Template[]>('GET', '/templates' + (project ? '?project=' + encodeURIComponent(project) : '')),
-  template: (id: string) => call<Template>('GET', `/templates/${id}`),
-  createTemplate: (t: Pick<Template, 'project' | 'code' | 'locale' | 'name' | 'engine' | 'retention_days'>) =>
-    call<Template>('POST', '/templates', t),
-  activate: (templateId: string, versionId: string, confirm = false) =>
-    call<Template>('POST', `/templates/${templateId}/activate${confirmQuery(confirm)}`, { version_id: versionId }),
-  archive: (templateId: string) => call<Template>('POST', `/templates/${templateId}/archive`),
-
-  versions: (templateId: string) => call<TemplateVersion[]>('GET', `/templates/${templateId}/versions`),
-  /**
-   * Загружает версию. expectedDraft — каким был черновик, когда начали правку: его updated_at
-   * или 'none', если черновика не было. Изменился с тех пор — ApiError с кодом draft_changed.
-   */
-  async uploadVersion(templateId: string, file: File, schema: string, testData: string, expectedDraft: string) {
-    const form = new FormData()
-    form.append('file', file)
-    form.append('schema', schema)
-    if (testData.trim()) form.append('test_data', testData)
-    form.append('expected_draft', expectedDraft)
-    const res = await request('POST', `/templates/${templateId}/versions`, form, false)
-    return (await res.json()) as TemplateVersion
-  },
-  publish: (versionId: string, confirm = false) =>
-    call<TemplateVersion>('POST', `/versions/${versionId}/publish${confirmQuery(confirm)}`),
-  diff: (versionId: string) => call<SchemaDiff>('GET', `/versions/${versionId}/diff`),
-  preview: (versionId: string) => blob(`/versions/${versionId}/preview`),
-  versionFile: (versionId: string) => blob(`/versions/${versionId}/file`),
 }
 
 /** Отдаёт браузеру Blob как скачиваемый файл. */

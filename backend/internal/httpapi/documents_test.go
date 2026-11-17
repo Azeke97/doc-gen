@@ -28,9 +28,8 @@ import (
 type fakeDocumentService struct {
 	err     error
 	created bool
-	doc     db.GetProjectDocumentRow
+	doc     db.Document
 	file    []byte
-	verify  db.GetDocumentByPublicIDRow
 	vars    []docx.Variable
 
 	gotClient   db.APIClient
@@ -38,7 +37,6 @@ type fakeDocumentService struct {
 	gotTemplate []byte
 	gotProject  string
 	gotID       uuid.UUID
-	gotPublic   string
 }
 
 func (f *fakeDocumentService) GenerateDOCX(_ context.Context, client db.APIClient, req documents.DocxRequest, _ string) (documents.Generated, error) {
@@ -46,7 +44,7 @@ func (f *fakeDocumentService) GenerateDOCX(_ context.Context, client db.APIClien
 	if f.err != nil {
 		return documents.Generated{}, f.err
 	}
-	return documents.Generated{Document: f.doc.Document, File: f.file, Created: f.created}, nil
+	return documents.Generated{Document: f.doc, File: f.file, Created: f.created}, nil
 }
 
 func (f *fakeDocumentService) CheckTemplate(file []byte) ([]docx.Variable, error) {
@@ -54,19 +52,14 @@ func (f *fakeDocumentService) CheckTemplate(file []byte) ([]docx.Variable, error
 	return f.vars, f.err
 }
 
-func (f *fakeDocumentService) Get(_ context.Context, project string, id uuid.UUID) (db.GetProjectDocumentRow, error) {
+func (f *fakeDocumentService) Get(_ context.Context, project string, id uuid.UUID) (db.Document, error) {
 	f.gotProject, f.gotID = project, id
 	return f.doc, f.err
 }
 
-func (f *fakeDocumentService) File(_ context.Context, project string, id uuid.UUID) (db.GetProjectDocumentRow, []byte, error) {
+func (f *fakeDocumentService) File(_ context.Context, project string, id uuid.UUID) (db.Document, []byte, error) {
 	f.gotProject, f.gotID = project, id
 	return f.doc, f.file, f.err
-}
-
-func (f *fakeDocumentService) Verify(_ context.Context, publicID string) (db.GetDocumentByPublicIDRow, error) {
-	f.gotPublic = publicID
-	return f.verify, f.err
 }
 
 // fakeJournal запоминает записи журнала.
@@ -80,16 +73,13 @@ func (f *fakeJournal) CreateGenerationLog(_ context.Context, arg db.CreateGenera
 	return f.err
 }
 
-func sampleDocument() db.GetProjectDocumentRow {
+func sampleDocument() db.Document {
 	now := time.Date(2026, 10, 20, 7, 0, 12, 0, time.UTC)
-	name, ext, by := "opening_protocol", "lot:209092", "user-17"
-	return db.GetProjectDocumentRow{
-		Document: db.Document{
-			ID: uuid.New(), PublicID: "0195f3c9a1e54b7d8c2a8e6f1b3d5a7c", Project: "procurement", Format: "pdf",
-			TemplateName: &name, TemplateSha256: make([]byte, 32), ExternalID: &ext, RequestedBy: &by,
-			FileSha256: make([]byte, 32), FileSize: 12, CreatedAt: now, ExpiresAt: now.Add(30 * 24 * time.Hour),
-		},
-		DisplayTemplateName: name,
+	ext, by := "lot:209092", "user-17"
+	return db.Document{
+		ID: uuid.New(), PublicID: "0195f3c9a1e54b7d8c2a8e6f1b3d5a7c", Project: "procurement", Format: "pdf",
+		TemplateName: "opening_protocol", TemplateSha256: make([]byte, 32), ExternalID: &ext, RequestedBy: &by,
+		FileSha256: make([]byte, 32), FileSize: 12, CreatedAt: now, ExpiresAt: now.Add(30 * 24 * time.Hour),
 	}
 }
 
@@ -181,7 +171,7 @@ func TestGenerateDocument(t *testing.T) {
 			if rec.Code != want || rec.Body.String() != "%PDF-1.7 doc" {
 				t.Fatalf("status = %d, want %d, body = %q", rec.Code, want, rec.Body.String())
 			}
-			doc := svc.doc.Document
+			doc := svc.doc
 			wantHeaders := map[string]string{
 				"Content-Type":          "application/pdf",
 				"Content-Disposition":   `attachment; filename="0195f3c9a1e54b7d8c2a8e6f1b3d5a7c.pdf"`,
@@ -313,7 +303,7 @@ func TestCheckTemplate(t *testing.T) {
 
 func TestGetDocument(t *testing.T) {
 	svc := &fakeDocumentService{doc: sampleDocument()}
-	id := svc.doc.Document.ID
+	id := svc.doc.ID
 
 	rec := doPortal(t, portalDeps{svc: svc}, http.MethodGet, "/v1/documents/"+id.String(), nil, nil)
 
@@ -324,16 +314,16 @@ func TestGetDocument(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if body.ID != id || body.TemplateName != "opening_protocol" || body.TemplateSHA256 == nil || *body.ExternalID != "lot:209092" || svc.gotProject != "procurement" {
+	if body.ID != id || body.TemplateName != "opening_protocol" || body.TemplateSHA256 != strings.Repeat("0", 64) || *body.ExternalID != "lot:209092" || svc.gotProject != "procurement" {
 		t.Errorf("body = %+v", body)
 	}
 }
 
 func TestDocumentFile(t *testing.T) {
 	svc := &fakeDocumentService{doc: sampleDocument(), file: []byte("PK docx")}
-	svc.doc.Document.Format = "docx"
+	svc.doc.Format = "docx"
 
-	rec := doPortal(t, portalDeps{svc: svc}, http.MethodGet, "/v1/documents/"+svc.doc.Document.ID.String()+"/file", nil, nil)
+	rec := doPortal(t, portalDeps{svc: svc}, http.MethodGet, "/v1/documents/"+svc.doc.ID.String()+"/file", nil, nil)
 
 	if rec.Code != http.StatusOK || rec.Body.String() != "PK docx" {
 		t.Fatalf("status = %d, body = %q", rec.Code, rec.Body.String())
