@@ -1,0 +1,40 @@
+{
+  "number": "0042",
+  "date": "2026-10-20",
+  "opened_at": "2026-10-20 12:00:12",
+  "customer": {
+    "name_kk": "«Синтетика» ЖШС",
+    "name_ru": "ТОО «Синтетика»",
+    "bin": "000740001307"
+  },
+  "lots": [
+    {"name_kk": "А4 қағазы", "name_ru": "Бумага А4", "quantity": 1500, "amount": 6000000},
+    {"name_kk": "Шарикті қалам", "name_ru": "Ручка шариковая", "quantity": "250", "amount": "37500.5"}
+  ],
+  "total": "6037500.5",
+  "applicants": [
+    {
+      "name": "ТОО «Альфа-Тест»",
+      "bin": 740001307,
+      "submitted_at": "2026-10-19T09:15:00+05:00",
+      "documents": [
+        {"title": "Жарғы / Устав", "provided": true},
+        {"title": "Лицензия", "provided": false}
+      ],
+      "security": "300000"
+    },
+    {
+      "name": "ИП «Бета-Тест»",
+      "bin": "000740001307",
+      "submitted_at": "2026-10-19 17:40",
+      "documents": [],
+      "security": null
+    }
+  ],
+  "commission": [
+    {"name": "Иванов И. И.", "role": "төраға / председатель"},
+    {"name": "Сейтқалиев А. Б.", "role": "мүше / член"}
+  ],
+  "chair_note": null,
+  "note": null
+}

@@ -87,6 +87,15 @@ keygen: ## Выдать API-ключ: make keygen name="Портал" project=pr
 	@test -n "$(name)" -a -n "$(project)" || (echo 'usage: make keygen name="..." project=...' && exit 1)
 	cd $(BACKEND) && go run ./cmd/keygen -name="$(name)" -project="$(project)"
 
+.PHONY: keylist
+keylist: ## Список API-ключей: make keylist [project=procurement]
+	cd $(BACKEND) && go run ./cmd/keygen -list -project="$(project)"
+
+.PHONY: keyrevoke
+keyrevoke: ## Отозвать API-ключ: make keyrevoke id=<ID из make keylist>
+	@test -n "$(id)" || (echo 'usage: make keyrevoke id=...' && exit 1)
+	cd $(BACKEND) && go run ./cmd/keygen -revoke="$(id)"
+
 .PHONY: admin-add
 admin-add: ## Создать администратора: make admin-add email=me@example.com name="Имя"
 	@test -n "$(email)" -a -n "$(name)" || (echo 'usage: make admin-add email=... name="..."' && exit 1)

@@ -4,7 +4,7 @@ DocGen is a standalone service shared by the company's portals: a portal sends a
 
 Spec: `docs/ТЗ DocGen ред. 2.docx` (redaction 2, approved). The user edits it in `~/Загрузки/ТЗ DocGen ред. 2.docx`; when they say it changed, copy it into `docs/` and commit. Out of scope by the spec: a template registry, HTML templates, template editors, signatures, QR/verification pages, workflow.
 
-The refactor from redaction 1 is in progress: stages 1–7 are done (DOCX engine, LibreOffice conversion, schema, new portal API, removal of the registry/HTML/QR code, admin API and UI for the journal and reports). Still to do: API key commands (list, revoke), DOCX golden tests.
+The refactor from redaction 1 to redaction 2 is complete (8 stages, 2026-11-17).
 
 ## Stack
 
@@ -17,7 +17,7 @@ The refactor from redaction 1 is in progress: stages 1–7 are done (DOCX engine
 
 - `make up` / `make down` — start/stop Postgres, MinIO, Gotenberg.
 - `make run`, `make migrate-up`, `make migration name=...`, `make generate` (sqlc).
-- `make keygen name=... project=...` — issue a portal API key (printed once).
+- `make keygen name=... project=...` — issue a portal API key (printed once); `make keylist [project=...]` — keys with ID, visible prefix, status; `make keyrevoke id=...` — revoke by ID (not by prefix: 5 random chars can collide); a revoked key gets `401` at once, its row stays for documents and the journal.
 - `make admin-add email=... name=...` — create an admin (password printed once). `make admin-disable email=...` — block an admin and close their sessions.
 - `make admin-install` / `make admin-dev` (Vite on :5173, proxies `/admin/v1` to `make run` on :8080) / `make admin-build` (→ `admin/dist`).
 - `make check` — lint + unit tests; `make test-integration` — tests against real Postgres/MinIO/Gotenberg (needs `make up` and the dev DB at the latest migration).
@@ -31,6 +31,7 @@ The refactor from redaction 1 is in progress: stages 1–7 are done (DOCX engine
 - `internal/documents` — `GenerateDOCX`, `CheckTemplate`, `Get`, `File`, retention cleanup (`RunCleanup`, `DeleteExpired`, `DeleteOrphanTemplates`).
 - `internal/format` — formatting of JSON values used by the engine's filters: money, numbers, dates, amounts in words, BIN/IIN, checkboxes; exact decimals via `math/big`.
 - `internal/gotenberg` — `ConvertDOCX` (LibreOffice route). Errors: `ErrConvert` (Gotenberg rejected the document), `ErrUnavailable` (no connection, timeout, 503/429, no free slot). At most `GOTENBERG_MAX_CONCURRENCY` (default 4) conversions at once; waiting for a slot counts towards `GOTENBERG_TIMEOUT`. LibreOffice turns even garbage into a PDF, so validating the input is `docx.Parse`'s job.
+- `internal/golden` — golden tests: a synthetic bilingual opening protocol (`testdata/opening_protocol.docx`, made from `opening_protocol.html` with LibreOffice; data in `.json`, all fictional) rendered to DOCX (byte-exact, no infra) and PDF through Gotenberg (integration; creation dates, `/ID` and `/DocChecksum` are normalised before comparing). After an intended change: `DOCGEN_INTEGRATION=1 go test ./internal/golden -update`, look at the files, commit.
 - `internal/storage` (S3), `internal/apikey`, `internal/adminauth`, `internal/config`, `internal/pgerr`.
 - `api/openapi.yaml` — API contract; keep it in sync with handlers.
 
@@ -55,6 +56,7 @@ The refactor from redaction 1 is in progress: stages 1–7 are done (DOCX engine
 - Syntax: `{{ a.b }}`, filters `{{ x | money }}` — `money number date datetime longdate:ru|kk words:ru|kk moneywords:ru|kk iin bin check upper lower capfirst default:text`; `{{#each list}}…{{else}}…{{/each}}`, `{{#if x}}…{{else}}…{{/if}}` (false: `false`, `null`, `""`, `0`, empty list/object), `{{../x}}`, `{{@number}}` (from 1), `{{@index}}`, `{{this}}`.
 - A block's mode comes from where its tags are: same paragraph → part of the paragraph; different table cells → table rows from the opening row to the closing row (`{{else}}` in its own row starts the "empty list" rows); otherwise whole paragraphs, and each block tag must then be alone in its paragraph.
 - `Template.Render(data)` copies the XML while expanding it — the parsed template is never changed, so it is safe to reuse and render concurrently. Every field used in the rendered branches must exist in the data (`null` is allowed, `default:` makes it optional); all errors are collected (≤50). Template and data messages are in Russian. Data values are never parsed as tags. `\n` in data becomes a line break. The output zip has fixed timestamps: same template + data → same bytes.
+- A table whose loops removed every row is dropped entirely (Word rejects tables without rows).
 - `Variables()` lists fields for `/templates/check` as `lots[].name` with usage (`value`, `each`, `if`) and filters.
 - Formatting rules: `money` → `6 000 000.00` (2 decimals, half away from zero, non-breaking space groups); `number` → `1 500`, `2.5`; dates in `Asia/Almaty` (input ISO `2006-01-02`, RFC 3339, or `2006-01-02 15:04[:05]` read as Kazakhstan time; tzdata embedded); `words`/`moneywords` — Russian counts use masculine forms except `тысяча`, in Kazakh 100 is `жүз` and 1000+ take `бір`; `iin`/`bin` strip spaces/dashes, left-pad JSON numbers and check the digit; `check` → `☒`/`☐`; booleans print `да`/`нет`.
 - Without a font in the document LibreOffice uses Carlito; Liberation, DejaVu and Noto in Gotenberg cover Kazakh letters.

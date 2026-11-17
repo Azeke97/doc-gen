@@ -498,3 +498,14 @@ func TestVariables(t *testing.T) {
 		t.Errorf("lots[].note = %+v", v)
 	}
 }
+
+func TestTableWithoutRowsIsRemoved(t *testing.T) {
+	file := makeDocx(t, p("До")+table(row("{{#each docs}}{{title}}", "{{/each}}"))+p("После"), nil)
+
+	if got := render(t, file, `{"docs":[]}`); got != "До\nПосле" {
+		t.Errorf("empty list: got %q", got)
+	}
+	if got := render(t, file, `{"docs":[{"title":"Устав"}]}`); got != "До\nУстав | \nПосле" {
+		t.Errorf("one item: got %q", got)
+	}
+}

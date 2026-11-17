@@ -140,8 +140,21 @@ func (r *renderer) span(kids []etree.Token, from, to int, dst *etree.Element, sc
 		}
 		n := shallow(el)
 		r.span(el.Child, 0, len(el.Child), n, sc)
+		// Таблица, у которой циклы убрали все строки, недопустима в Word: убираем её целиком.
+		if r.p.is(n, "tbl") && !r.hasRows(n) {
+			continue
+		}
 		dst.AddChild(n)
 	}
+}
+
+func (r *renderer) hasRows(tbl *etree.Element) bool {
+	for _, c := range tbl.ChildElements() {
+		if r.p.is(c, "tr") {
+			return true
+		}
+	}
+	return false
 }
 
 // block раскрывает блок, начинающийся с kids[start]. Возвращает индекс его последнего якоря.

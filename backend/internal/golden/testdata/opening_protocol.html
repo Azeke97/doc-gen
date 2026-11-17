@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<title>Хаттама / Протокол</title>
+<style>
+  body { font-family: "Liberation Serif"; font-size: 11pt; }
+  h1 { font-size: 14pt; text-align: center; }
+  h2 { font-size: 12pt; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #000; padding: 2pt 4pt; }
+</style>
+</head>
+<body>
+<h1>Конкурсқа қатысуға өтінімдерді ашу хаттамасы № {{ number }}</h1>
+<h1>Протокол вскрытия заявок на участие в конкурсе № {{ number }}</h1>
+<p>{{ date | longdate:kk }} / {{ date | longdate:ru }}, {{ opened_at | datetime }}</p>
+<p>Тапсырыс беруші / Заказчик: <b>{{ customer.name_kk }}</b> / <b>{{ customer.name_ru }}</b>, БСН / БИН {{ customer.bin | bin }}</p>
+<h2>Лоттар / Лоты</h2>
+<table>
+<tr><th>№</th><th>Атауы / Наименование</th><th>Саны / Количество</th><th>Сомасы / Сумма, ₸</th></tr>
+<tr><td>{{#each lots}}{{@number}}</td><td>{{ name_kk }} / {{ name_ru }}</td><td>{{ quantity | number }}</td><td>{{ amount | money }}</td></tr>
+<tr><td>{{else}}Лоттар жоқ / Лотов нет</td><td></td><td></td><td>{{/each}}</td></tr>
+</table>
+<p>Жалпы сомасы / Общая сумма: {{ total | money }} ₸</p>
+<p>{{ total | moneywords:kk | capfirst }}</p>
+<p>{{ total | moneywords:ru | capfirst }}</p>
+<h2>Өтінімдер / Заявки</h2>
+<p>{{#each applicants}}</p>
+<p><b>{{@number}}. {{ name }}</b>, БСН / БИН {{ bin | bin }}, {{ submitted_at | datetime }}</p>
+<table>
+<tr><td>{{#each documents}}{{ title }}</td><td>{{ provided | check }}{{/each}}</td></tr>
+</table>
+<p>{{#if security}}Қамтамасыз ету енгізілді / Обеспечение внесено: {{ security | money }} ₸{{else}}Қамтамасыз ету енгізілмеді / Обеспечение не внесено{{/if}}</p>
+<p>{{else}}</p>
+<p>Өтінімдер берілмеді / Заявки не поданы</p>
+<p>{{/each}}</p>
+<h2>Комиссия</h2>
+<p>{{#each commission}}{{ name }} ({{ role }}){{#if ../chair_note}}{{/if}}; {{/each}}</p>
+<p>{{ note | default:Ескертпе жоқ / Примечаний нет }}</p>
+</body>
+</html>
