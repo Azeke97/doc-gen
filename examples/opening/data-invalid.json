@@ -1,0 +1,36 @@
+{
+  "number": "100780-1-ОТ",
+  "opened_at": "20.10.2026",
+  "tender": {
+    "number": "100780-1",
+    "name_kk": "Тест",
+    "name_ru": "Тест"
+  },
+  "customer": {
+    "name_ru": "АО «ТЕСТ МАШИНА»"
+  },
+  "organizer": {
+    "name_kk": "«ТЕСТ МАШИНА» АҚ",
+    "name_ru": "АО «ТЕСТ МАШИНА»",
+    "address_kk": "Орал қ.",
+    "address_ru": "г. Уральск"
+  },
+  "commission": "не список",
+  "total": "шесть миллионов",
+  "lots": [],
+  "applicants_count": 1,
+  "applicants": [
+    {
+      "id": "1",
+      "name_kk": "«ЭПСИЛОН ТЕСТ» ЖШС",
+      "name_ru": "ТОО «ЭПСИЛОН ТЕСТ»",
+      "bin": "123456789012",
+      "address_kk": "—",
+      "address_ru": "—",
+      "submitted_at": "2026-10-20 12:00",
+      "documents": [{"title": "Устав", "provided": "да"}]
+    }
+  ],
+  "note_kk": null,
+  "note_ru": null
+}

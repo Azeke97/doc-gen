@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<title>Қорытындылар туралы хаттама / Протокол об итогах</title>
+<style>
+  @page { size: 29.7cm 21cm; margin: 1.5cm 1.27cm; }
+  body { font-family: "DejaVu Serif"; font-size: 9pt; }
+  h1 { font-size: 12pt; text-align: center; margin: 0; }
+  h2 { font-size: 10pt; margin: 10pt 0 4pt; }
+  p.center { text-align: center; font-weight: bold; }
+  th, td { vertical-align: top; }
+  th { background: #eeeeee; }
+  td.caption { text-align: center; font-weight: bold; }
+  .small { font-size: 8pt; }
+</style>
+</head>
+<body>
+
+<h1>Қорытындылар туралы хаттама №{{ number }}</h1>
+<p class="center">{{ decided_at | datetime }}</p>
+
+<table class="info" width="100%" cellpadding="2">
+<tr><td width="25%"><b>Тапсырыс беруші</b></td><td>{{ customer.name_kk }}</td></tr>
+<tr><td><b>Тендер №</b></td><td>{{ tender.number }}</td></tr>
+<tr><td><b>Тендер атауы</b></td><td>{{ tender.name_kk }}</td></tr>
+<tr><td><b>Ұйымдастырушының атауы</b></td><td>{{ organizer.name_kk }}</td></tr>
+<tr><td><b>Ұйымдастырушының мекенжайы</b></td><td>{{ organizer.address_kk }}</td></tr>
+</table>
+
+<h2>Тендерлік комиссияның құрамы:</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="5%">№</th><th width="30%">Т.А.Ә.</th><th width="40%">Ұйымдағы лауазымы</th><th>Комиссиядағы рөлі</th></tr>
+<tr><td>{{#each commission}}{{@number}}</td><td>{{ name }}</td><td>{{ position_kk }}</td><td>{{ role_kk }}{{/each}}</td></tr>
+</table>
+
+<h2>Жалпы сомасы көрсетілген сатып алынатын тауарлар, жұмыстар, көрсетілетін қызметтер тізбесі {{ total | money }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="12%">Лоттың №</th><th width="44%">Лоттың атауы</th><th width="10%">Саны</th><th width="14%">Бірлік үшін бағасы, теңге</th><th>Сатып алу үшін бөлінген сома, теңге</th></tr>
+<tr><td>{{#each lots}}{{@number}}</td><td>{{ number }}</td><td>{{ name_kk }}</td><td>{{ quantity | number }}</td><td>{{ price | money }}</td><td>{{ amount | money }}{{/each}}</td></tr>
+</table>
+
+<p>{{#each lots}}</p>
+<p>Лоттың №: {{ number }}</p>
+<p>Лоттың атауы: {{ name_kk }}</p>
+<p>Қосымша сипаттамасы: {{ extra_kk | default:— }}</p>
+<p>{{/each}}</p>
+
+<h2>Тендерға (лотқа) қатысуға берілген өтінімдер туралы ақпарат: {{ applicants_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="8%">№</th><th width="52%">Әлеуетті өнім берушінің атауы</th><th width="15%">БСН (ЖСН) / ССН / ТЕН</th><th>Өтінім берілген күн мен уақыт</th></tr>
+<tr><td>{{#each applicants}}{{ id }}</td><td>{{ name_kk }}</td><td>{{ bin | bin }}</td><td>{{ submitted_at | datetime }}{{/each}}</td></tr>
+</table>
+
+<h2>Тендерге қатысуға өтінімдерді қарау кезінде мынадай құжаттар сұралды (тендерлік комиссия сұрау салуды жүзеге асырған жағдайда толтырылады):</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="30%">Сұрау салу жіберілген ұйымның/тұлғаның атауы</th><th width="14%">Сұрау салу жіберілген күн</th><th width="30%">Сұрау салудың қысқаша сипаттамасы</th><th>Сұрау салуға жауап берілген күн</th></tr>
+<tr><td>{{#each requests}}{{@number}}</td><td>{{ addressee }}</td><td>{{ sent_at | date }}</td><td>{{ summary_kk }}</td><td>{{ answered_at | date | default:жауап жоқ }}</td></tr>
+<tr><td>{{else}}</td><td>Берілген өтінімдер жоқ.</td><td></td><td></td><td>{{/each}}</td></tr>
+</table>
+
+<h2>Тендерлік комиссия мүшелерінің дауыс беру нәтижелері:</h2>
+<p>{{#each votes}}</p>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><td colspan="5" class="caption">{{ name_kk }}, {{ bin | bin }}</td></tr>
+<tr><th width="4%">№</th><th width="18%">Комиссия мүшесінің А.Т.Ә.</th><th width="10%">Комиссия мүшесінің шешімі</th><th width="12%">Бас тарту себебі</th><th>Тендерлік құжаттама талаптары мен біліктілік талаптарына сәйкес келмеуін растайтын мәліметтер мен құжаттарды көрсете отырып, бас тарту себептерін егжей-тегжейлі сипаттау</th></tr>
+<tr><td>{{#each members}}{{@number}}</td><td>{{ name }}</td><td>{{#if admitted}}өткізілді{{else}}қабылдамау{{/if}}</td><td>{{ reason_kk | default:— }}</td><td>{{ details | default:— }}{{/each}}</td></tr>
+</table>
+<p>{{/each}}</p>
+
+<h2>Тендерға қатысудан бас тартылған өтінімдер: {{ rejected_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="46%">Әлеуетті өнім берушінің атауы</th><th width="15%">БСН (ЖСН) / ССН / ТЕН</th><th>Бас тарту себебі</th></tr>
+<tr><td>{{#each rejected}}{{@number}}</td><td>{{ name_kk }}</td><td>{{ bin | bin }}</td><td>{{ reason_kk }}</td></tr>
+<tr><td>{{else}}</td><td>Бас тартылған өтінімдер жоқ</td><td></td><td>{{/each}}</td></tr>
+</table>
+
+<h2>Тендерға қатысуға мынадай өтінімдерге рұқсат етілген: {{ admitted_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="70%">Әлеуетті өнім берушінің атауы</th><th>БСН (ЖСН) / ССН / ТЕН</th></tr>
+<tr><td>{{#each admitted}}{{@number}}</td><td>{{ name_kk }}</td><td>{{ bin | bin }}{{/each}}</td></tr>
+</table>
+
+<h2>Осы тендерге қатысуға ұсынылған барлық өтінімдерге Қағидаларда көзделген өлшемшарттардың салыстырмалы мәнін қолдану нәтижелері туралы ақпарат: {{ applicants_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="40%">Әлеуетті өнім берушінің атауы</th><th width="14%">БСН (ЖСН) / ССН / ТЕН</th><th>Соңғы он жыл ішіндегі жұмыс тәжірибесі</th><th>0,5% за каждый год</th><th>Төленген салықтардың көрсеткіші</th><th>Жалпы шартты жеңілдік, %</th></tr>
+<tr><td>{{#each discounts}}{{@number}}</td><td>{{ name_kk }}</td><td>{{ bin | bin }}</td><td>{{ experience }}</td><td>{{ per_year }}</td><td>{{ taxes }}</td><td>{{ total }}{{/each}}</td></tr>
+</table>
+
+<h2>Тендерға қатысушылардың шартты бағаларының есебі:</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th>№</th><th>Өнім берушінің атауы</th><th>БСН (ЖСН) / ССН / ТЕН</th><th>Бөлінген сома</th><th>Өнім берушінің бағасы</th><th>Демпингке қарсы шараларға сәйкес сома</th><th>Шартты жеңілдік мөлшері, %</th><th>Шартты жеңілдікті ескере отырып баға</th><th>Қаржылық тұрақтылық көрсеткіші</th><th>Өтінімді беру күні мен уақыты</th></tr>
+<tr><td>{{#each prices}}{{@number}}</td><td>{{ name_kk }}</td><td>{{ bin | bin }}</td><td>{{ allocated | money }}</td><td>{{ price | money }}</td><td>{{ antidumping | money }}</td><td>{{ discount }}</td><td>{{ conditional_price | money }}</td><td>{{ stability }}</td><td>{{ submitted_at | datetime }}{{/each}}</td></tr>
+</table>
+
+<p>{{#if result.failed}}Сатып алуды {{ result.lot_number }} лот бойынша {{ tender.name_kk }} тендерге {{ result.reason_kk }} өтпеді деп тану.{{else}}Сатып алуды {{ result.lot_number }} лот бойынша өтті деп тану. Жеңімпаз: {{ result.winner.name_kk }} (БСН {{ result.winner.bin | bin }}), шарт сомасы {{ result.winner.price | money }} теңге ({{ result.winner.price | moneywords:kk }}).{{/if}}</p>
+
+<p>Ескертпе:</p>
+<p>* Тапсырыс берушілер туралы мәлімет, егер тапсырыс берушілер бірнешеу болса көрсетілмейді.</p>
+<p class="small">Аббревиатураларды таратып жазу:<br>БСН – бизнес-сәйкестендіру нөмірі;<br>ЖСН – жеке сәйкестендіру нөмірі;<br>ССН – салық төлеушінің сәйкестендіру нөмірі;<br>Т.А.Ә. – тегі, аты, әкесінің аты;<br>КК.АА.ЖЖЖЖ. – күн, ай, жыл;<br>СС:ММ:СС – сағат, минут, секунд.</p>
+
+<h1 style="page-break-before: always">Протокол об итогах №{{ number }}</h1>
+<p class="center">{{ decided_at | datetime }}</p>
+
+<table class="info" width="100%" cellpadding="2">
+<tr><td width="25%"><b>Заказчик</b></td><td>{{ customer.name_ru }}</td></tr>
+<tr><td><b>№ тендера</b></td><td>{{ tender.number }}</td></tr>
+<tr><td><b>Наименование тендера</b></td><td>{{ tender.name_ru }}</td></tr>
+<tr><td><b>Наименование организатора</b></td><td>{{ organizer.name_ru }}</td></tr>
+<tr><td><b>Адрес организатора</b></td><td>{{ organizer.address_ru }}</td></tr>
+</table>
+
+<h2>Состав тендерной комиссии:</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="5%">№</th><th width="30%">Ф.И.О.</th><th width="40%">Должность в организации</th><th>Роль в комиссии</th></tr>
+<tr><td>{{#each commission}}{{@number}}</td><td>{{ name }}</td><td>{{ position_ru }}</td><td>{{ role_ru }}{{/each}}</td></tr>
+</table>
+
+<h2>Перечень закупаемых товаров, работ, услуг с указанием общей суммы {{ total | money }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="12%">№ Лота</th><th width="44%">Наименование лота</th><th width="10%">Количество</th><th width="14%">Цена за единицу, тенге</th><th>Сумма, выделенная для закупки, тенге</th></tr>
+<tr><td>{{#each lots}}{{@number}}</td><td>{{ number }}</td><td>{{ name_ru }}</td><td>{{ quantity | number }}</td><td>{{ price | money }}</td><td>{{ amount | money }}{{/each}}</td></tr>
+</table>
+
+<p>{{#each lots}}</p>
+<p>№ лота: {{ number }}</p>
+<p>Наименование лота: {{ name_ru }}</p>
+<p>Дополнительная характеристика: {{ extra_ru | default:— }}</p>
+<p>{{/each}}</p>
+
+<h2>Информация о представленных заявках на участие в тендере (лоте): {{ applicants_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="8%">№</th><th width="52%">Наименование потенциального поставщика</th><th width="15%">БИН (ИИН) / ИНН / УНП</th><th>Дата и время предоставления заявки</th></tr>
+<tr><td>{{#each applicants}}{{ id }}</td><td>{{ name_ru }}</td><td>{{ bin | bin }}</td><td>{{ submitted_at | datetime }}{{/each}}</td></tr>
+</table>
+
+<h2>При рассмотрении заявок на участие в тендере были запрошены следующие документы (заполняется в случае осуществления запросов):</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="30%">Наименование организации/лица, которому направлен запрос</th><th width="14%">Дата направления запроса</th><th width="30%">Краткое описание запроса</th><th>Дата представления ответа на запрос</th></tr>
+<tr><td>{{#each requests}}{{@number}}</td><td>{{ addressee }}</td><td>{{ sent_at | date }}</td><td>{{ summary_ru }}</td><td>{{ answered_at | date | default:ответа нет }}</td></tr>
+<tr><td>{{else}}</td><td>Нет предоставленных заявок.</td><td></td><td></td><td>{{/each}}</td></tr>
+</table>
+
+<h2>Результаты голосования членов тендерной комиссии:</h2>
+<p>{{#each votes}}</p>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><td colspan="5" class="caption">{{ name_ru }}, {{ bin | bin }}</td></tr>
+<tr><th width="4%">№</th><th width="18%">Ф.И.О. (при его наличии) члена комиссии</th><th width="10%">Решение члена комиссии</th><th width="12%">Причина отклонения</th><th>Подробное описание причин отклонения с указанием сведений и документов, подтверждающих их несоответствие квалификационным требованиям и требованиям тендерной документации</th></tr>
+<tr><td>{{#each members}}{{@number}}</td><td>{{ name }}</td><td>{{#if admitted}}допущен{{else}}отклонен{{/if}}</td><td>{{ reason_ru | default:— }}</td><td>{{ details | default:— }}{{/each}}</td></tr>
+</table>
+<p>{{/each}}</p>
+
+<h2>Отклоненные заявки на участие в тендере: {{ rejected_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="46%">Наименование потенциального поставщика</th><th width="15%">БИН (ИИН) / ИНН / УНП</th><th>Причина отклонения</th></tr>
+<tr><td>{{#each rejected}}{{@number}}</td><td>{{ name_ru }}</td><td>{{ bin | bin }}</td><td>{{ reason_ru }}</td></tr>
+<tr><td>{{else}}</td><td>Отклонённых заявок нет</td><td></td><td>{{/each}}</td></tr>
+</table>
+
+<h2>Следующие заявки на участие в тендере были допущены: {{ admitted_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="70%">Наименование потенциального поставщика</th><th>БИН (ИИН) / ИНН / УНП</th></tr>
+<tr><td>{{#each admitted}}{{@number}}</td><td>{{ name_ru }}</td><td>{{ bin | bin }}{{/each}}</td></tr>
+</table>
+
+<h2>Информация о результатах применения относительного значения критериев, предусмотренных настоящими Правилами, ко всем заявкам на участие в тендере, представленным на участие в данном тендере: {{ applicants_count }}</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th width="4%">№</th><th width="40%">Наименование потенциального поставщика</th><th width="14%">БИН (ИИН) / ИНН / УНП</th><th>Опыт работы за последние десять лет</th><th>0,5% за каждый год</th><th>Показатель уплаченных налогов</th><th>Общая условная скидка, %</th></tr>
+<tr><td>{{#each discounts}}{{@number}}</td><td>{{ name_ru }}</td><td>{{ bin | bin }}</td><td>{{ experience }}</td><td>{{ per_year }}</td><td>{{ taxes }}</td><td>{{ total }}{{/each}}</td></tr>
+</table>
+
+<h2>Расчет условных цен участников тендера:</h2>
+<table border="1" cellspacing="0" cellpadding="3" width="100%">
+<tr><th>№</th><th>Наименование потенциального поставщика</th><th>БИН (ИИН) / ИНН / УНП</th><th>Выделенная сумма</th><th>Цена поставщика</th><th>Сумма в соответствии с антидемпинговыми мерами</th><th>Размер условной скидки, %</th><th>Цена с учетом условной скидки</th><th>Показатель финансовой устойчивости</th><th>Дата и время подачи заявки</th></tr>
+<tr><td>{{#each prices}}{{@number}}</td><td>{{ name_ru }}</td><td>{{ bin | bin }}</td><td>{{ allocated | money }}</td><td>{{ price | money }}</td><td>{{ antidumping | money }}</td><td>{{ discount }}</td><td>{{ conditional_price | money }}</td><td>{{ stability }}</td><td>{{ submitted_at | datetime }}{{/each}}</td></tr>
+</table>
+
+<p>{{#if result.failed}}Признать закупку {{ tender.name_ru }} по лоту №{{ result.lot_number }} несостоявшейся в связи с тем, что {{ result.reason_ru }}.{{else}}Признать закупку по лоту №{{ result.lot_number }} состоявшейся. Победитель: {{ result.winner.name_ru }} (БИН {{ result.winner.bin | bin }}), сумма договора {{ result.winner.price | money }} тенге ({{ result.winner.price | moneywords:ru }}).{{/if}}</p>
+
+<p>Примечание:</p>
+<p>* Сведения о заказчике не отображаются, если несколько заказчиков.</p>
+<p class="small">Расшифровка аббревиатур:<br>БИН – бизнес-идентификационный номер;<br>ИИН – индивидуальный идентификационный номер;<br>ИНН – идентификационный номер налогоплательщика;<br>УНП – учетный номер плательщика;<br>Ф.И.О. – фамилия, имя, отчество;<br>ДД.ММ.ГГГГ. – день, месяц, год;<br>ЧЧ:ММ:СС. – часы, минуты, секунды.</p>
+
+</body>
+</html>

@@ -20,3 +20,4 @@ admin/node_modules/
 admin/dist/
 # новый PDF, если эталонный тест не совпал
 *.golden.pdf.actual
+examples/out/
