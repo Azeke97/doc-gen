@@ -219,6 +219,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v1/verify/{public_id}:
+    get:
+      summary: Публичная проверка подлинности документа
+      description: |
+        Сюда ведёт QR-код документа. Ключ не нужен. Ответ подтверждает, что документ выпущен
+        сервисом, и не раскрывает его содержимое. Браузеру (`Accept` содержит `text/html`)
+        отвечает страницей проверки с теми же статусами, остальным — JSON.
+      security: []
+      parameters:
+        - name: public_id
+          in: path
+          required: true
+          description: Идентификатор из колонтитула документа (32 hex-символа)
+          schema:
+            type: string
+            pattern: "^[0-9a-f]{32}$"
+      responses:
+        "200":
+          description: Документ подлинный
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyResult"
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: Документа нет (в том числе неверный формат идентификатора)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "410":
+          description: Срок хранения документа истёк
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /admin/v1/login:
     post:
       summary: Вход администратора
@@ -963,6 +1002,41 @@ components:
           expires_at:
             type: string
             format: date-time
+
+    VerifyResult:
+      type: object
+      required: [public_id, valid, template_name, project_name, format, file_sha256, file_size, created_at, expires_at, signatures]
+      properties:
+        public_id:
+          type: string
+        valid:
+          type: boolean
+          const: true
+        template_name:
+          type: string
+        project_name:
+          type: string
+          description: Проект (портал), для которого выпущен документ
+        format:
+          type: string
+          enum: [pdf, docx]
+        file_sha256:
+          type: string
+          description: SHA-256 файла в hex, чтобы сверить свою копию
+        file_size:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        signatures:
+          type: array
+          description: Подписанты; пока подписи не принимаются, список пуст
+          items:
+            type: object
 
     WhoAmI:
       type: object

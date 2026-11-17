@@ -36,14 +36,19 @@ func NewRouter(deps Deps) http.Handler {
 	r.Get("/healthz", healthHandler)
 
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(requireAPIKey(deps.APIClients))
+		// Публичная проверка по QR-коду — без ключа.
+		r.Get("/verify/{public_id}", verifyHandler(deps.Documents))
 
-		r.Get("/whoami", whoamiHandler)
-		r.Get("/templates", listPortalTemplatesHandler(deps.PortalTemplates))
-		r.Get("/templates/{code}/schema", portalSchemaHandler(deps.PortalTemplates))
-		r.Post("/documents", generateDocumentHandler(deps.Documents))
-		r.Get("/documents/{id}", getDocumentHandler(deps.Documents))
-		r.Get("/documents/{id}/file", documentFileHandler(deps.Documents))
+		r.Group(func(r chi.Router) {
+			r.Use(requireAPIKey(deps.APIClients))
+
+			r.Get("/whoami", whoamiHandler)
+			r.Get("/templates", listPortalTemplatesHandler(deps.PortalTemplates))
+			r.Get("/templates/{code}/schema", portalSchemaHandler(deps.PortalTemplates))
+			r.Post("/documents", generateDocumentHandler(deps.Documents))
+			r.Get("/documents/{id}", getDocumentHandler(deps.Documents))
+			r.Get("/documents/{id}/file", documentFileHandler(deps.Documents))
+		})
 	})
 
 	r.Route("/admin/v1", func(r chi.Router) {

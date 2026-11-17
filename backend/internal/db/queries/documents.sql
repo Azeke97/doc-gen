@@ -31,3 +31,12 @@ FOR UPDATE SKIP LOCKED;
 -- name: DeleteDocuments :exec
 DELETE FROM documents
 WHERE id = ANY(@ids::uuid[]);
+
+-- name: GetDocumentByPublicID :one
+-- Для публичной проверки: только то, что подтверждает подлинность, без данных документа.
+SELECT d.public_id, d.format, d.file_sha256, d.file_size, d.created_at, d.expires_at,
+       t.name AS template_name, p.name AS project_name
+FROM documents d
+         JOIN templates t ON t.id = d.template_id
+         JOIN projects p ON p.code = d.project
+WHERE d.public_id = $1;

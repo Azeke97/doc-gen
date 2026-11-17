@@ -28,6 +28,7 @@ type DocumentService interface {
 	Generate(ctx context.Context, client db.APIClient, req documents.GenerateRequest, trace string) (db.Document, bool, error)
 	Get(ctx context.Context, project string, id uuid.UUID) (db.GetProjectDocumentRow, error)
 	File(ctx context.Context, project string, id uuid.UUID) (db.GetProjectDocumentRow, []byte, error)
+	Verify(ctx context.Context, publicID string) (db.GetDocumentByPublicIDRow, error)
 }
 
 type generateDocumentRequest struct {

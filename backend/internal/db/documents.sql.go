@@ -127,6 +127,43 @@ func (q *Queries) GetDocumentByIdempotencyKey(ctx context.Context, arg GetDocume
 	return i, err
 }
 
+const getDocumentByPublicID = `-- name: GetDocumentByPublicID :one
+SELECT d.public_id, d.format, d.file_sha256, d.file_size, d.created_at, d.expires_at,
+       t.name AS template_name, p.name AS project_name
+FROM documents d
+         JOIN templates t ON t.id = d.template_id
+         JOIN projects p ON p.code = d.project
+WHERE d.public_id = $1
+`
+
+type GetDocumentByPublicIDRow struct {
+	PublicID     string
+	Format       string
+	FileSha256   []byte
+	FileSize     int64
+	CreatedAt    time.Time
+	ExpiresAt    time.Time
+	TemplateName string
+	ProjectName  string
+}
+
+// Для публичной проверки: только то, что подтверждает подлинность, без данных документа.
+func (q *Queries) GetDocumentByPublicID(ctx context.Context, publicID string) (GetDocumentByPublicIDRow, error) {
+	row := q.db.QueryRow(ctx, getDocumentByPublicID, publicID)
+	var i GetDocumentByPublicIDRow
+	err := row.Scan(
+		&i.PublicID,
+		&i.Format,
+		&i.FileSha256,
+		&i.FileSize,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.TemplateName,
+		&i.ProjectName,
+	)
+	return i, err
+}
+
 const getProjectDocument = `-- name: GetProjectDocument :one
 SELECT d.id, d.public_id, d.api_client_id, d.project, d.template_id, d.template_version_id, d.external_id, d.requested_by, d.format, d.file_key, d.file_sha256, d.file_size, d.data, d.idempotency_key, d.request_sha256, d.created_at, d.expires_at, t.code AS template_code, t.locale, v.version
 FROM documents d

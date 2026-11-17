@@ -25,11 +25,13 @@ type fakeDocumentService struct {
 	created bool
 	doc     db.GetProjectDocumentRow
 	file    []byte
+	verify  db.GetDocumentByPublicIDRow
 
 	gotClient  db.APIClient
 	gotReq     documents.GenerateRequest
 	gotProject string
 	gotID      uuid.UUID
+	gotPublic  string
 }
 
 func (f *fakeDocumentService) Generate(_ context.Context, client db.APIClient, req documents.GenerateRequest, _ string) (db.Document, bool, error) {
@@ -45,6 +47,11 @@ func (f *fakeDocumentService) Get(_ context.Context, project string, id uuid.UUI
 func (f *fakeDocumentService) File(_ context.Context, project string, id uuid.UUID) (db.GetProjectDocumentRow, []byte, error) {
 	f.gotProject, f.gotID = project, id
 	return f.doc, f.file, f.err
+}
+
+func (f *fakeDocumentService) Verify(_ context.Context, publicID string) (db.GetDocumentByPublicIDRow, error) {
+	f.gotPublic = publicID
+	return f.verify, f.err
 }
 
 func sampleDocument() db.GetProjectDocumentRow {
