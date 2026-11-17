@@ -88,6 +88,15 @@ func uploadVersionHandler(svc TemplateService) http.HandlerFunc {
 		if td := r.FormValue("test_data"); td != "" {
 			params.TestData = json.RawMessage(td)
 		}
+		if expected, ok := r.MultipartForm.Value["expected_draft"]; ok && len(expected) > 0 {
+			exp, err := parseExpectedDraft(expected[0])
+			if err != nil {
+				writeError(w, r, http.StatusBadRequest, "invalid_expected_draft",
+					`expected_draft must be "none" or the draft updated_at in RFC 3339`)
+				return
+			}
+			params.Expect = exp
+		}
 
 		actor, _ := actorFromContext(r.Context())
 		version, created, err := svc.UploadVersion(r.Context(), actor.Email, templateID, params)
@@ -151,6 +160,19 @@ func versionFileHandler(svc TemplateService) http.HandlerFunc {
 			slog.ErrorContext(r.Context(), "write version file", "err", err)
 		}
 	}
+}
+
+// parseExpectedDraft читает поле expected_draft: "none" — черновика быть не должно,
+// иначе updated_at черновика, который клиент редактировал.
+func parseExpectedDraft(v string) (*templates.DraftExpectation, error) {
+	if v == "none" {
+		return &templates.DraftExpectation{}, nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, v)
+	if err != nil {
+		return nil, err
+	}
+	return &templates.DraftExpectation{UpdatedAt: &t}, nil
 }
 
 // parseUUIDParam читает UUID из параметра маршрута. При ошибке сам отвечает 400.

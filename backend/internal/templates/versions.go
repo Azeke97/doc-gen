@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,6 +27,15 @@ type UploadParams struct {
 	File     []byte
 	Schema   json.RawMessage
 	TestData json.RawMessage // необязательно
+	// Expect — каким клиент видел черновик, когда начинал правку; nil — не проверять.
+	Expect *DraftExpectation
+}
+
+// DraftExpectation защищает черновик от затирания: если с тех пор, как клиент его открыл,
+// черновик заменили, появился или опубликовали, загрузка отклоняется с ErrDraftChanged.
+type DraftExpectation struct {
+	// UpdatedAt — updated_at черновика, с которого начали правку; nil — черновика не было.
+	UpdatedAt *time.Time
 }
 
 // UploadVersion загружает файл шаблона. Если у шаблона есть черновик, он заменяется,
@@ -61,6 +71,9 @@ func (s *Service) UploadVersion(ctx context.Context, actor string, templateID uu
 			return err
 		}
 		created = errors.Is(err, pgx.ErrNoRows)
+		if p.Expect != nil && !p.Expect.matches(draft, !created) {
+			return ErrDraftChanged
+		}
 
 		number := draft.Version
 		if created {
@@ -124,6 +137,13 @@ func (s *Service) UploadVersion(ctx context.Context, actor string, templateID uu
 	}
 
 	return version, created, nil
+}
+
+func (e DraftExpectation) matches(draft db.TemplateVersion, exists bool) bool {
+	if e.UpdatedAt == nil {
+		return !exists
+	}
+	return exists && draft.UpdatedAt.Equal(*e.UpdatedAt)
 }
 
 // deleteFile удаляет файл без ссылок на него. Ошибку только логируем: лишний файл

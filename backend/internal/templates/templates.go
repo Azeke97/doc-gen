@@ -45,6 +45,7 @@ var (
 	ErrVersionNotFound         = errors.New("template version not found")
 	ErrVersionAlreadyPublished = errors.New("template version is already published")
 	ErrVersionNotPublished     = errors.New("template version is not published")
+	ErrDraftChanged            = errors.New("draft was changed by someone else since you opened it")
 
 	ErrNoTestData          = errors.New("template version has no test data")
 	ErrPreviewNotSupported = errors.New("preview is available only for html templates")

@@ -145,6 +145,8 @@ func writeTemplateError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusNotFound, "version_not_found", templates.ErrVersionNotFound.Error())
 	case errors.Is(err, templates.ErrVersionAlreadyPublished):
 		writeError(w, r, http.StatusConflict, "version_already_published", templates.ErrVersionAlreadyPublished.Error())
+	case errors.Is(err, templates.ErrDraftChanged):
+		writeError(w, r, http.StatusConflict, "draft_changed", templates.ErrDraftChanged.Error())
 	case errors.Is(err, templates.ErrVersionNotPublished):
 		writeError(w, r, http.StatusConflict, "version_not_published", templates.ErrVersionNotPublished.Error())
 	case errors.Is(err, templates.ErrNoTestData):

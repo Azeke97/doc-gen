@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -70,6 +71,7 @@ func TestUploadVersion(t *testing.T) {
 		{name: "no template", svcErr: templates.ErrTemplateNotFound, wantStatus: http.StatusNotFound},
 		{name: "archived", svcErr: templates.ErrTemplateArchived, wantStatus: http.StatusConflict},
 		{name: "invalid", svcErr: &templates.ValidationError{Field: "file", Message: "bad"}, wantStatus: http.StatusBadRequest},
+		{name: "draft changed", svcErr: templates.ErrDraftChanged, wantStatus: http.StatusConflict},
 	}
 
 	for _, tt := range tests {
@@ -111,6 +113,54 @@ func TestUploadVersionBadRequest(t *testing.T) {
 		rec := s.upload("/admin/v1/templates/"+uuid.NewString()+"/versions",
 			bytes.NewBufferString(`{"file":"x"}`), "application/json", token)
 		assertErrorCode(t, rec, http.StatusBadRequest, "invalid_form")
+	})
+}
+
+func TestUploadVersionExpectedDraft(t *testing.T) {
+	path := "/admin/v1/templates/" + uuid.NewString() + "/versions"
+	at := time.Date(2026, 11, 17, 9, 30, 1, 123456000, time.UTC)
+
+	tests := []struct {
+		name     string
+		fields   map[string]string
+		wantNil  bool
+		wantTime *time.Time
+	}{
+		{name: "not sent", fields: map[string]string{}, wantNil: true},
+		{name: "no draft expected", fields: map[string]string{"expected_draft": "none"}},
+		{name: "draft expected", fields: map[string]string{"expected_draft": "2026-11-17T14:30:01.123456+05:00"}, wantTime: &at},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newAdminTestServer(t)
+			token := s.login()
+			tt.fields["schema"] = `{"type":"object"}`
+			body, ct := multipartBody(t, []byte("<p>x</p>"), tt.fields)
+			if rec := s.upload(path, body, ct, token); rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, body = %s", rec.Code, rec.Body)
+			}
+
+			got := s.templates.gotUpload.Expect
+			switch {
+			case tt.wantNil:
+				if got != nil {
+					t.Errorf("Expect = %+v, want nil", got)
+				}
+			case got == nil:
+				t.Fatal("Expect = nil")
+			case tt.wantTime == nil && got.UpdatedAt != nil:
+				t.Errorf("UpdatedAt = %v, want nil", got.UpdatedAt)
+			case tt.wantTime != nil && (got.UpdatedAt == nil || !got.UpdatedAt.Equal(*tt.wantTime)):
+				t.Errorf("UpdatedAt = %v, want %v", got.UpdatedAt, tt.wantTime)
+			}
+		})
+	}
+
+	t.Run("invalid", func(t *testing.T) {
+		s := newAdminTestServer(t)
+		token := s.login()
+		body, ct := multipartBody(t, []byte("<p>x</p>"), map[string]string{"schema": "{}", "expected_draft": "yesterday"})
+		assertErrorCode(t, s.upload(path, body, ct, token), http.StatusBadRequest, "invalid_expected_draft")
 	})
 }
 

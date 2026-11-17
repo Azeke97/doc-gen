@@ -546,6 +546,13 @@ paths:
                   description: |
                     Тестовые данные для предпросмотра (JSON), необязательно. Должны подходить под схему,
                     иначе 400 invalid_test_data с ошибками по полям в error.details.
+                expected_draft:
+                  type: string
+                  description: |
+                    Защита от затирания чужих правок, необязательно. `none` — клиент начинал правку,
+                    когда черновика не было; иначе `updated_at` черновика, который он редактировал
+                    (как пришёл в TemplateVersion). Если черновик с тех пор появился, заменён или
+                    опубликован — 409 draft_changed. Без поля черновик заменяется без проверки.
       responses:
         "201":
           description: Создан новый черновик
@@ -570,7 +577,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Шаблон в архиве
+          description: Шаблон в архиве (template_archived) или черновик изменился (draft_changed)
           content:
             application/json:
               schema:
