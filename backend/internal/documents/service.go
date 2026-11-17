@@ -33,8 +33,9 @@ type TemplateSource interface {
 	LoadFile(ctx context.Context, key string, sha []byte) ([]byte, error)
 }
 
-// PDFConverter превращает HTML в PDF.
+// PDFConverter превращает DOCX и HTML в PDF.
 type PDFConverter interface {
+	ConvertDOCX(ctx context.Context, docx []byte, trace string) ([]byte, error)
 	ConvertHTML(ctx context.Context, doc gotenberg.Document, trace string) ([]byte, error)
 }
 
@@ -46,20 +47,31 @@ type DB interface {
 
 // Service выпускает документы.
 type Service struct {
-	db        DB
-	templates TemplateSource
-	pdf       PDFConverter
-	files     *storage.Store
-	bucket    string
-	now       func() time.Time
+	db             DB
+	templates      TemplateSource
+	pdf            PDFConverter
+	files          *storage.Store
+	bucket         string // файлы документов
+	templateBucket string // копии шаблонов, по которым выпущены документы
+	now            func() time.Time
 
 	verifyBase string
 }
 
-// NewService создаёт сервис документов. bucket — бакет, где лежат файлы документов;
-// verifyBase — адрес страницы проверки, к нему приписывается public_id.
-func NewService(conn DB, tmpl TemplateSource, pdf PDFConverter, files *storage.Store, bucket, verifyBase string) *Service {
-	return &Service{db: conn, templates: tmpl, pdf: pdf, files: files, bucket: bucket, now: time.Now, verifyBase: verifyBase}
+// Buckets — бакеты хранилища, с которыми работает сервис.
+type Buckets struct {
+	Documents string // файлы документов
+	Templates string // копии шаблонов из запросов
+}
+
+// NewService создаёт сервис документов. verifyBase — адрес страницы проверки, к нему
+// приписывается public_id.
+func NewService(conn DB, tmpl TemplateSource, pdf PDFConverter, files *storage.Store, buckets Buckets, verifyBase string) *Service {
+	return &Service{
+		db: conn, templates: tmpl, pdf: pdf, files: files,
+		bucket: buckets.Documents, templateBucket: buckets.Templates,
+		now: time.Now, verifyBase: verifyBase,
+	}
 }
 
 // GenerateRequest — запрос портала на выпуск документа.

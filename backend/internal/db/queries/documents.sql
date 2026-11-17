@@ -11,12 +11,22 @@ RETURNING *;
 SELECT * FROM documents
 WHERE api_client_id = $1 AND idempotency_key = $2;
 
+-- name: CreateDocxDocument :one
+-- Документ по DOCX-шаблону из запроса.
+INSERT INTO documents (
+    public_id, api_client_id, project, template_name, template_sha256, external_id, requested_by,
+    format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, expires_at
+) VALUES (
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+         )
+RETURNING *;
+
 -- name: GetProjectDocument :one
--- Портал видит только документы своего проекта. Шаблон — кодом и номером версии, как портал его знает.
-SELECT sqlc.embed(d), t.code AS template_code, t.locale, v.version
+-- Портал видит только документы своего проекта. Имя шаблона — как его назвал портал;
+-- у документов старого реестра — код шаблона.
+SELECT sqlc.embed(d), COALESCE(d.template_name, t.code)::text AS display_template_name
 FROM documents d
-         JOIN templates t ON t.id = d.template_id
-         JOIN template_versions v ON v.id = d.template_version_id
+         LEFT JOIN templates t ON t.id = d.template_id
 WHERE d.id = $1 AND d.project = $2;
 
 -- name: LockExpiredDocuments :many

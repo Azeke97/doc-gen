@@ -84,7 +84,8 @@ func main() {
 	queries := db.New(pool)
 	pdf := gotenberg.New(cfg.Gotenberg.URL, cfg.Gotenberg.Timeout).WithConcurrency(cfg.Gotenberg.MaxConcurrency)
 	templateService := templates.NewService(pool, store, cfg.S3.TemplatesBucket, pdf, cfg.Documents.VerifyURL)
-	documentService := documents.NewService(pool, templateService, pdf, store, cfg.S3.DocumentsBucket, cfg.Documents.VerifyURL)
+	documentService := documents.NewService(pool, templateService, pdf, store,
+		documents.Buckets{Documents: cfg.S3.DocumentsBucket, Templates: cfg.S3.TemplatesBucket}, cfg.Documents.VerifyURL)
 
 	if cfg.Documents.CleanupInterval > 0 {
 		go documentService.RunCleanup(ctx, cfg.Documents.CleanupInterval, cfg.Documents.CleanupBatch)
@@ -107,6 +108,7 @@ func main() {
 			Templates:       templateService,
 			PortalTemplates: templateService,
 			Documents:       documentService,
+			Journal:         queries,
 			AdminUI:         adminUI,
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,

@@ -22,7 +22,7 @@ func TestGetAndFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if doc.TemplateCode != "opening_protocol" || doc.Locale != "ru" || doc.Version != 1 || doc.Document.ID != created.ID {
+	if doc.DisplayTemplateName != "opening_protocol" || doc.Document.ID != created.ID {
 		t.Errorf("doc = %+v", doc)
 	}
 

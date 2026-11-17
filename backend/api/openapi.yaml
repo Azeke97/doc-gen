@@ -97,10 +97,12 @@ paths:
 
   /v1/documents:
     post:
-      summary: Выпустить документ по шаблону
+      summary: Выпустить документ по DOCX-шаблону из запроса
       description: |
-        Повтор с тем же Idempotency-Key и тем же запросом возвращает уже выпущенный документ (200).
-        Тот же ключ с другим запросом — 409 idempotency_conflict.
+        Шаблон и данные приходят в запросе; ответ — сам файл (DOCX или PDF). Каждый запрос,
+        в том числе отклонённый, пишется в журнал. Повтор с тем же Idempotency-Key и тем же
+        запросом (шаблон, данные, поля) возвращает уже выпущенный документ (200);
+        тот же ключ с другим запросом — 409 idempotency_conflict.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -111,40 +113,61 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/GenerateDocumentRequest"
+              $ref: "#/components/schemas/GenerateDocumentForm"
       responses:
         "201":
           description: Документ выпущен
           headers:
+            X-Document-Id:
+              description: ID документа для GET /v1/documents/{id}
+              schema:
+                type: string
+                format: uuid
+            X-Document-SHA256:
+              description: SHA-256 файла в hex
+              schema:
+                type: string
+            X-Document-Expires-At:
+              description: До какого момента документ хранится (RFC 3339)
+              schema:
+                type: string
+                format: date-time
             Location:
               schema:
                 type: string
           content:
-            application/json:
+            application/pdf:
               schema:
-                $ref: "#/components/schemas/Document"
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
         "200":
-          description: Повтор запроса — уже выпущенный документ
+          description: Повтор запроса — уже выпущенный документ, те же заголовки и файл
           content:
-            application/json:
+            application/pdf:
               schema:
-                $ref: "#/components/schemas/Document"
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
         "400":
-          description: Неверный запрос; invalid_data — данные не прошли схему, ошибки по полям в error.details
+          description: |
+            Неверный запрос: invalid_form (не multipart, лишнее или повторённое поле),
+            invalid_<поле> (обязательное поле, формат, retention_days больше срока проекта),
+            invalid_data — данные не подходят шаблону, ошибки по полям в error.details (FieldError).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: Шаблон или версия не найдены
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
         "409":
           description: Ключ идемпотентности уже использован для другого запроса
           content:
@@ -152,13 +175,64 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "413":
-          description: Тело запроса больше 5 МиБ
+          description: Шаблон больше 10 МиБ или данные больше 5 МиБ
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "422":
-          description: Шаблон не отрисовался на этих данных (render_failed)
+          description: |
+            invalid_template — шаблон нельзя использовать, проблемы в error.details (TemplateProblem);
+            conversion_failed — LibreOffice не смог превратить документ в PDF.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Конвертер PDF недоступен или перегружен (converter_unavailable) — повторите позже
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/templates/check:
+    post:
+      summary: Проверить DOCX-шаблон без генерации
+      description: Удобно запускать в CI портала при изменении шаблона.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ template ]
+              properties:
+                template:
+                  type: string
+                  format: binary
+                  description: Файл .docx, до 10 МиБ
+      responses:
+        "200":
+          description: Шаблон можно использовать
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ valid, variables ]
+                properties:
+                  valid:
+                    type: boolean
+                    const: true
+                  variables:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TemplateVariable"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: invalid_template — проблемы шаблона в error.details (TemplateProblem)
           content:
             application/json:
               schema:
@@ -1012,67 +1086,98 @@ components:
           type: string
           example: got string, want number
 
-    GenerateDocumentRequest:
+    GenerateDocumentForm:
       type: object
-      required: [ template, data ]
-      additionalProperties: false
+      required: [ template, data, format, template_name, external_id, requested_by, retention_days ]
       properties:
         template:
           type: string
-          example: opening_protocol
-        locale:
+          format: binary
+          description: DOCX-шаблон с метками {{ }}, до 10 МиБ
+        data:
           type: string
-          description: Обязательна, если у кода несколько локалей; kz принимается как kk
-        version:
+          description: JSON-объект с данными (полем или файлом), до 5 МиБ
+        format:
+          type: string
+          enum: [ docx, pdf ]
+        template_name:
+          type: string
+          maxLength: 200
+          description: Как шаблон называет портал, например opening_protocol; по нему строятся отчёты
+        external_id:
+          type: string
+          maxLength: 255
+          description: Сущность в портале, ради которой выпущен документ, например lot:209092
+        requested_by:
+          type: string
+          maxLength: 255
+          description: ID пользователя в портале — не ФИО и не ИИН
+        retention_days:
           type: integer
-          description: Зафиксированная версия; без неё — активная
+          minimum: 1
+          description: Срок хранения в днях, не больше срока хранения проекта
+
+    TemplateProblem:
+      type: object
+      required: [ part, context, message ]
+      properties:
+        part:
+          type: string
+          description: Основной текст, верхний или нижний колонтитул
+        context:
+          type: string
+          description: Текст абзаца рядом с проблемной меткой
+        message:
+          type: string
+
+    TemplateVariable:
+      type: object
+      required: [ path, usage ]
+      properties:
+        path:
+          type: string
+          description: Путь в данных; [] — элемент списка, например lots[].name
+          example: lots[].name
+        usage:
+          type: array
+          items:
+            type: string
+            enum: [ value, each, if ]
+        filters:
+          type: array
+          items:
+            type: string
+          example: [ money ]
+
+    Document:
+      type: object
+      required: [ id, template_name, template_sha256, format, external_id, requested_by, file_sha256, file_size, created_at, expires_at ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_name:
+          type: string
+        template_sha256:
+          type: [ string, "null" ]
+          description: SHA-256 шаблона, по которому выпущен документ (null у документов старого реестра)
         format:
           type: string
           enum: [ pdf, docx ]
-          default: pdf
-        data:
-          type: object
-          description: Данные по схеме шаблона (GET /v1/templates/{code}/schema)
         external_id:
-          type: string
-          description: ID сущности в портале
+          type: [ string, "null" ]
         requested_by:
+          type: [ string, "null" ]
+        file_sha256:
           type: string
-          description: Автор запроса в портале
-
-    Document:
-        type: object
-        required: [ id, public_id, template, locale, version, format, external_id, requested_by, file_sha256, file_size, created_at, expires_at ]
-        properties:
-          id:
-            type: string
-            format: uuid
-          public_id:
-            type: string
-            description: Идентификатор в колонтитуле и на странице проверки (32 hex)
-          template:
-            type: string
-          locale:
-            type: string
-          version:
-            type: integer
-          format:
-            type: string
-            enum: [ pdf, docx ]
-          external_id:
-            type: [ string, "null" ]
-          requested_by:
-            type: [ string, "null" ]
-          file_sha256:
-            type: string
-          file_size:
-            type: integer
-          created_at:
-            type: string
-            format: date-time
-          expires_at:
-            type: string
-            format: date-time
+        file_size:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
 
     VerifyResult:
       type: object

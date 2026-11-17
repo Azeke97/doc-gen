@@ -19,6 +19,7 @@ type Deps struct {
 	Templates       TemplateService
 	PortalTemplates PortalTemplateService
 	Documents       DocumentService
+	Journal         JournalStore
 	// AdminUI — собранная админка; nil — сервис её не раздаёт.
 	AdminUI http.Handler
 }
@@ -47,7 +48,8 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/whoami", whoamiHandler)
 			r.Get("/templates", listPortalTemplatesHandler(deps.PortalTemplates))
 			r.Get("/templates/{code}/schema", portalSchemaHandler(deps.PortalTemplates))
-			r.Post("/documents", generateDocumentHandler(deps.Documents))
+			r.Post("/documents", generateDocumentHandler(deps.Documents, deps.Journal))
+			r.Post("/templates/check", checkTemplateHandler(deps.Documents))
 			r.Get("/documents/{id}", getDocumentHandler(deps.Documents))
 			r.Get("/documents/{id}/file", documentFileHandler(deps.Documents))
 		})

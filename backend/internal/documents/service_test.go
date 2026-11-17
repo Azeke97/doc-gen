@@ -90,6 +90,8 @@ func newTestEnv(t *testing.T) *env {
 		removeFiles(ctx, tx, files, tmplBucket,
 			"SELECT v.file_key FROM template_versions v JOIN templates t ON t.id = v.template_id WHERE t.project = $1", project)
 		removeFiles(ctx, tx, files, docBucket, "SELECT file_key FROM documents WHERE project = $1", project)
+		removeFiles(ctx, tx, files, docBucket,
+			"SELECT DISTINCT t.file_key FROM template_files t JOIN documents d ON d.template_sha256 = t.sha256 WHERE d.project = $1", project)
 		if err := tx.Rollback(ctx); err != nil {
 			t.Errorf("rollback: %v", err)
 		}
@@ -114,7 +116,7 @@ func newTestEnv(t *testing.T) *env {
 		templates: templates.NewService(tx, files, tmplBucket, pdf, testVerifyBase),
 		client:    client,
 	}
-	e.documents = NewService(tx, e.templates, pdf, files, docBucket, testVerifyBase)
+	e.documents = NewService(tx, e.templates, pdf, files, Buckets{Documents: docBucket, Templates: docBucket}, testVerifyBase)
 
 	if e.tmpl, err = e.templates.Create(ctx, "alice", templates.CreateParams{
 		Project: project, Code: "opening_protocol", Locale: "ru", Name: "Протокол", Engine: "html", RetentionDays: 30,
@@ -281,6 +283,10 @@ type recordingConverter struct {
 	doc gotenberg.Document
 }
 
+func (r *recordingConverter) ConvertDOCX(_ context.Context, docx []byte, _ string) ([]byte, error) {
+	return append([]byte("%PDF-"), docx[:min(len(docx), 4)]...), nil
+}
+
 func (r *recordingConverter) ConvertHTML(_ context.Context, doc gotenberg.Document, _ string) ([]byte, error) {
 	r.doc = doc
 	return []byte("%PDF-recorded"), nil
@@ -289,7 +295,7 @@ func (r *recordingConverter) ConvertHTML(_ context.Context, doc gotenberg.Docume
 func TestGenerateFooterHasPublicID(t *testing.T) {
 	e := newTestEnv(t)
 	rec := &recordingConverter{}
-	svc := NewService(e.tx, e.templates, rec, e.files, e.docBucket, testVerifyBase)
+	svc := NewService(e.tx, e.templates, rec, e.files, Buckets{Documents: e.docBucket, Templates: e.docBucket}, testVerifyBase)
 
 	doc, _, err := svc.Generate(t.Context(), e.client, request("footer"), "")
 	if err != nil {

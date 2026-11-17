@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createGenerationLog = `-- name: CreateGenerationLog :exec
@@ -33,12 +32,12 @@ type CreateGenerationLogParams struct {
 	RequestedBy    *string
 	IdempotencyKey *string
 	Status         string
-	HttpStatus     int32
+	HTTPStatus     int32
 	ErrorCode      *string
 	ErrorMessage   *string
 	ErrorDetails   json.RawMessage
 	DocumentID     *uuid.UUID
-	ResultSize     pgtype.Int8
+	ResultSize     *int64
 	DurationMs     int32
 }
 
@@ -54,7 +53,7 @@ func (q *Queries) CreateGenerationLog(ctx context.Context, arg CreateGenerationL
 		arg.RequestedBy,
 		arg.IdempotencyKey,
 		arg.Status,
-		arg.HttpStatus,
+		arg.HTTPStatus,
 		arg.ErrorCode,
 		arg.ErrorMessage,
 		arg.ErrorDetails,
@@ -62,6 +61,16 @@ func (q *Queries) CreateGenerationLog(ctx context.Context, arg CreateGenerationL
 		arg.ResultSize,
 		arg.DurationMs,
 	)
+	return err
+}
+
+const deleteTemplateFiles = `-- name: DeleteTemplateFiles :exec
+DELETE FROM template_files
+WHERE sha256 = ANY($1::bytea[])
+`
+
+func (q *Queries) DeleteTemplateFiles(ctx context.Context, shas [][]byte) error {
+	_, err := q.db.Exec(ctx, deleteTemplateFiles, shas)
 	return err
 }
 
@@ -94,20 +103,56 @@ func (q *Queries) GetTemplateFile(ctx context.Context, sha256 []byte) (TemplateF
 	return i, err
 }
 
-const saveTemplateFile = `-- name: SaveTemplateFile :exec
-INSERT INTO template_files (sha256, file_key, size)
-VALUES ($1, $2, $3)
-ON CONFLICT (sha256) DO NOTHING
+const lockOrphanTemplateFiles = `-- name: LockOrphanTemplateFiles :many
+SELECT sha256, file_key FROM template_files t
+WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.template_sha256 = t.sha256)
+ORDER BY created_at
+LIMIT $1
+FOR UPDATE SKIP LOCKED
 `
 
-type SaveTemplateFileParams struct {
+type LockOrphanTemplateFilesRow struct {
+	Sha256  []byte
+	FileKey string
+}
+
+// Копии шаблонов, на которые не ссылается ни один документ (все удалены по сроку хранения).
+func (q *Queries) LockOrphanTemplateFiles(ctx context.Context, limit int32) ([]LockOrphanTemplateFilesRow, error) {
+	rows, err := q.db.Query(ctx, lockOrphanTemplateFiles, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockOrphanTemplateFilesRow
+	for rows.Next() {
+		var i LockOrphanTemplateFilesRow
+		if err := rows.Scan(&i.Sha256, &i.FileKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockTemplateFile = `-- name: LockTemplateFile :exec
+INSERT INTO template_files (sha256, file_key, size)
+VALUES ($1, $2, $3)
+ON CONFLICT (sha256) DO UPDATE SET file_key = EXCLUDED.file_key
+`
+
+type LockTemplateFileParams struct {
 	Sha256  []byte
 	FileKey string
 	Size    int64
 }
 
-// Копия шаблона сохраняется один раз на SHA-256; повторная загрузка того же файла ничего не меняет.
-func (q *Queries) SaveTemplateFile(ctx context.Context, arg SaveTemplateFileParams) error {
-	_, err := q.db.Exec(ctx, saveTemplateFile, arg.Sha256, arg.FileKey, arg.Size)
+// Запись о копии шаблона: одна на SHA-256. DO UPDATE (а не DO NOTHING) нужен ради блокировки
+// строки до конца транзакции: очистка пропускает заблокированные копии и не удалит ту,
+// на которую сейчас ссылается выпускаемый документ.
+func (q *Queries) LockTemplateFile(ctx context.Context, arg LockTemplateFileParams) error {
+	_, err := q.db.Exec(ctx, lockTemplateFile, arg.Sha256, arg.FileKey, arg.Size)
 	return err
 }

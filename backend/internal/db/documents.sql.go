@@ -84,6 +84,78 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 	return i, err
 }
 
+const createDocxDocument = `-- name: CreateDocxDocument :one
+INSERT INTO documents (
+    public_id, api_client_id, project, template_name, template_sha256, external_id, requested_by,
+    format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, expires_at
+) VALUES (
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+         )
+RETURNING id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256
+`
+
+type CreateDocxDocumentParams struct {
+	PublicID       string
+	APIClientID    uuid.UUID
+	Project        string
+	TemplateName   *string
+	TemplateSha256 []byte
+	ExternalID     *string
+	RequestedBy    *string
+	Format         string
+	FileKey        string
+	FileSha256     []byte
+	FileSize       int64
+	Data           json.RawMessage
+	IdempotencyKey string
+	RequestSha256  []byte
+	ExpiresAt      time.Time
+}
+
+// Документ по DOCX-шаблону из запроса.
+func (q *Queries) CreateDocxDocument(ctx context.Context, arg CreateDocxDocumentParams) (Document, error) {
+	row := q.db.QueryRow(ctx, createDocxDocument,
+		arg.PublicID,
+		arg.APIClientID,
+		arg.Project,
+		arg.TemplateName,
+		arg.TemplateSha256,
+		arg.ExternalID,
+		arg.RequestedBy,
+		arg.Format,
+		arg.FileKey,
+		arg.FileSha256,
+		arg.FileSize,
+		arg.Data,
+		arg.IdempotencyKey,
+		arg.RequestSha256,
+		arg.ExpiresAt,
+	)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.APIClientID,
+		&i.Project,
+		&i.TemplateID,
+		&i.TemplateVersionID,
+		&i.ExternalID,
+		&i.RequestedBy,
+		&i.Format,
+		&i.FileKey,
+		&i.FileSha256,
+		&i.FileSize,
+		&i.Data,
+		&i.IdempotencyKey,
+		&i.RequestSha256,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.TemplateName,
+		&i.TemplateSha256,
+	)
+	return i, err
+}
+
 const deleteDocuments = `-- name: DeleteDocuments :exec
 DELETE FROM documents
 WHERE id = ANY($1::uuid[])
@@ -169,10 +241,9 @@ func (q *Queries) GetDocumentByPublicID(ctx context.Context, publicID string) (G
 }
 
 const getProjectDocument = `-- name: GetProjectDocument :one
-SELECT d.id, d.public_id, d.api_client_id, d.project, d.template_id, d.template_version_id, d.external_id, d.requested_by, d.format, d.file_key, d.file_sha256, d.file_size, d.data, d.idempotency_key, d.request_sha256, d.created_at, d.expires_at, d.template_name, d.template_sha256, t.code AS template_code, t.locale, v.version
+SELECT d.id, d.public_id, d.api_client_id, d.project, d.template_id, d.template_version_id, d.external_id, d.requested_by, d.format, d.file_key, d.file_sha256, d.file_size, d.data, d.idempotency_key, d.request_sha256, d.created_at, d.expires_at, d.template_name, d.template_sha256, COALESCE(d.template_name, t.code)::text AS display_template_name
 FROM documents d
-         JOIN templates t ON t.id = d.template_id
-         JOIN template_versions v ON v.id = d.template_version_id
+         LEFT JOIN templates t ON t.id = d.template_id
 WHERE d.id = $1 AND d.project = $2
 `
 
@@ -182,13 +253,12 @@ type GetProjectDocumentParams struct {
 }
 
 type GetProjectDocumentRow struct {
-	Document     Document
-	TemplateCode string
-	Locale       string
-	Version      int32
+	Document            Document
+	DisplayTemplateName string
 }
 
-// Портал видит только документы своего проекта. Шаблон — кодом и номером версии, как портал его знает.
+// Портал видит только документы своего проекта. Имя шаблона — как его назвал портал;
+// у документов старого реестра — код шаблона.
 func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocumentParams) (GetProjectDocumentRow, error) {
 	row := q.db.QueryRow(ctx, getProjectDocument, arg.ID, arg.Project)
 	var i GetProjectDocumentRow
@@ -212,9 +282,7 @@ func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocument
 		&i.Document.ExpiresAt,
 		&i.Document.TemplateName,
 		&i.Document.TemplateSha256,
-		&i.TemplateCode,
-		&i.Locale,
-		&i.Version,
+		&i.DisplayTemplateName,
 	)
 	return i, err
 }

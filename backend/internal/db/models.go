@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type APIClient struct {
@@ -85,12 +84,12 @@ type GenerationLog struct {
 	RequestedBy    *string
 	IdempotencyKey *string
 	Status         string
-	HttpStatus     int32
+	HTTPStatus     int32
 	ErrorCode      *string
 	ErrorMessage   *string
 	ErrorDetails   json.RawMessage
 	DocumentID     *uuid.UUID
-	ResultSize     pgtype.Int8
+	ResultSize     *int64
 	DurationMs     int32
 }
 

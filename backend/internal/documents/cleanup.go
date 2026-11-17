@@ -50,6 +50,41 @@ func (s *Service) DeleteExpired(ctx context.Context, limit int32) (int, error) {
 	return deleted, nil
 }
 
+// DeleteOrphanTemplates удаляет до limit копий шаблонов, на которые не ссылается ни один
+// документ: все документы по ним удалены по сроку хранения. В одной транзакции и в таком
+// порядке: строки блокируются (копии, занятые выпуском документа, пропускаются), удаляются —
+// внешний ключ не даст удалить копию, на которую успел сослаться новый документ, — и только
+// потом удаляются файлы. Неудача с файлом не откатывает удаление: лишний файл безвреден.
+func (s *Service) DeleteOrphanTemplates(ctx context.Context, limit int32) (int, error) {
+	var keys []string
+
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		q := db.New(tx)
+		orphans, err := q.LockOrphanTemplateFiles(ctx, limit)
+		if err != nil || len(orphans) == 0 {
+			return err
+		}
+		shas := make([][]byte, 0, len(orphans))
+		for _, o := range orphans {
+			shas = append(shas, o.Sha256)
+			keys = append(keys, o.FileKey)
+		}
+		if err := q.DeleteTemplateFiles(ctx, shas); err != nil {
+			return err
+		}
+		for _, key := range keys {
+			if err := s.files.Delete(ctx, s.templateBucket, key); err != nil {
+				slog.WarnContext(ctx, "delete orphan template copy", "key", key, "err", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("delete orphan template copies: %w", err)
+	}
+	return len(keys), nil
+}
+
 // RunCleanup удаляет просроченные документы сразу и затем каждые interval, пока не отменён ctx.
 func (s *Service) RunCleanup(ctx context.Context, interval time.Duration, batch int32) {
 	for {
@@ -63,23 +98,30 @@ func (s *Service) RunCleanup(ctx context.Context, interval time.Duration, batch 
 	}
 }
 
-// cleanup удаляет пачками, пока просроченные документы не кончатся.
+// cleanup удаляет пачками просроченные документы, а затем ставшие ненужными копии шаблонов.
 func (s *Service) cleanup(ctx context.Context, batch int32) {
+	if n := drain(ctx, batch, s.DeleteExpired); n > 0 {
+		slog.InfoContext(ctx, "expired documents deleted", "count", n)
+	}
+	if n := drain(ctx, batch, s.DeleteOrphanTemplates); n > 0 {
+		slog.InfoContext(ctx, "orphan template copies deleted", "count", n)
+	}
+}
+
+// drain повторяет step пачками, пока пачка не окажется неполной. Возвращает сколько удалено.
+func drain(ctx context.Context, batch int32, step func(context.Context, int32) (int, error)) int {
 	total := 0
 	for {
-		n, err := s.DeleteExpired(ctx, batch)
+		n, err := step(ctx, batch)
 		if err != nil {
 			if ctx.Err() == nil {
 				slog.ErrorContext(ctx, "documents cleanup", "err", err)
 			}
-			break
+			return total
 		}
 		total += n
 		if n < int(batch) {
-			break
+			return total
 		}
-	}
-	if total > 0 {
-		slog.InfoContext(ctx, "expired documents deleted", "count", total)
 	}
 }

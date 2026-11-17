@@ -34,6 +34,11 @@ sql:
             go_type:
               type: "int32"
               pointer: true
+          - db_type: "pg_catalog.int8"
+            nullable: true
+            go_type:
+              type: "int64"
+              pointer: true
           - db_type: "text"
             nullable: true
             go_type:
@@ -42,3 +47,4 @@ sql:
         rename:
           api_client: "APIClient"
           api_client_id: "APIClientID"
+          http_status: "HTTPStatus"
