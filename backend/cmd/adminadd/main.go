@@ -1,8 +1,7 @@
 // Команда adminadd управляет администраторами:
 //
 //	adminadd -email=... -name=...   создать администратора (пароль печатается один раз)
-//	adminadd -demo                  создать или обновить тестовую запись бета-теста из ADMIN_DEMO_*
-//	adminadd -disable -email=...    заблокировать запись и закрыть её сессии
+//	adminadd -disable -email=...    заблокировать администратора и закрыть его сессии
 package main
 
 import (
@@ -25,20 +24,14 @@ import (
 	"docgen/internal/pgerr"
 )
 
-const demoName = "Тестовый администратор"
-
 func main() {
 	email := flag.String("email", "", "email администратора, он же логин")
 	name := flag.String("name", "", "имя администратора")
-	demo := flag.Bool("demo", false, "создать или обновить тестовую запись из ADMIN_DEMO_EMAIL и ADMIN_DEMO_PASSWORD")
 	disable := flag.Bool("disable", false, "заблокировать администратора с этим email")
 	flag.Parse()
 
 	*email = strings.ToLower(strings.TrimSpace(*email))
-	switch {
-	case *demo && *disable,
-		!*demo && *email == "",
-		!*demo && !*disable && *name == "":
+	if *email == "" || (!*disable && *name == "") {
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -57,14 +50,11 @@ func main() {
 	defer pool.Close()
 	q := db.New(pool)
 
-	switch {
-	case *demo:
-		upsertDemo(ctx, q)
-	case *disable:
+	if *disable {
 		disableAdmin(ctx, pool, *email)
-	default:
-		createAdmin(ctx, q, *email, *name)
+		return
 	}
+	createAdmin(ctx, q, *email, *name)
 }
 
 func createAdmin(ctx context.Context, q *db.Queries, email, name string) {
@@ -85,26 +75,6 @@ func createAdmin(ctx context.Context, q *db.Queries, email, name string) {
 
 	fmt.Printf("Admin %s <%s> created (id: %s).\n\nPassword:\n\n  %s\n\nSave it now — it will not be shown again.\n",
 		user.Name, user.Email, user.ID, password)
-}
-
-// upsertDemo создаёт тестовую запись или выставляет ей пароль из настроек заново: так пароль
-// в базе всегда совпадает с тем, что показывает страница входа.
-func upsertDemo(ctx context.Context, q *db.Queries) {
-	cfg, err := config.LoadAdminDemo()
-	if err != nil {
-		fail("demo account is not configured", err)
-	}
-	hash, err := adminauth.HashPassword(cfg.DemoPassword)
-	if err != nil {
-		fail("failed to hash password", err)
-	}
-	user, err := q.UpsertAdminUser(ctx, db.UpsertAdminUserParams{
-		Email: strings.ToLower(strings.TrimSpace(cfg.DemoEmail)), Name: demoName, PasswordHash: hash,
-	})
-	if err != nil {
-		fail("failed to save demo admin", err)
-	}
-	fmt.Printf("Demo admin %s is ready (id: %s). The login page shows it while ADMIN_DEMO_LOGIN=true.\n", user.Email, user.ID)
 }
 
 func disableAdmin(ctx context.Context, pool *pgxpool.Pool, email string) {

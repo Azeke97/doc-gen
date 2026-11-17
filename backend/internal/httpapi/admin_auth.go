@@ -93,18 +93,12 @@ func loginHandler(store AdminAuthStore, sessionTTL time.Duration) http.HandlerFu
 	}
 }
 
-// DemoLogin — тестовая учётная запись, которую показывает страница входа (бета-тест).
-type DemoLogin struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-// loginInfoHandler — GET /admin/v1/login-info, без входа: что показать на странице входа.
-// demo_login есть только на тестовом стенде с ADMIN_DEMO_LOGIN=true.
-func loginInfoHandler(demo *DemoLogin) http.HandlerFunc {
+// loginInfoHandler — GET /admin/v1/login-info, без входа: нужен ли вход. На демо-стенде
+// с ADMIN_AUTH_DISABLED=true админка открыта без него.
+func loginInfoHandler(authDisabled bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		writeJSON(w, r, http.StatusOK, map[string]*DemoLogin{"demo_login": demo})
+		writeJSON(w, r, http.StatusOK, map[string]bool{"auth_required": !authDisabled})
 	}
 }
 
@@ -131,11 +125,20 @@ func meHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, r, http.StatusOK, meResponse(actor))
 }
 
+// demoActor — тот, от чьего имени идут действия, когда вход отключён.
+var demoActor = Actor{Email: "demo", Name: "Демо-режим"}
+
 // requireAdmin пропускает запрос, только если в нём действующий токен сессии администратора.
-// Опознанный администратор кладётся в контекст запроса.
-func requireAdmin(store AdminAuthStore) func(http.Handler) http.Handler {
+// Опознанный администратор кладётся в контекст запроса. Если вход отключён (демо-стенд),
+// пропускает всех от имени demoActor.
+func requireAdmin(store AdminAuthStore, disabled bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if disabled {
+				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), actorCtxKey, demoActor)))
+				return
+			}
+
 			token, ok := bearerToken(r)
 			if !ok || !strings.HasPrefix(token, adminauth.SessionPrefix) {
 				writeAdminUnauthorized(w, r)

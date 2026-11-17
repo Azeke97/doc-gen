@@ -222,21 +222,32 @@ func TestReports(t *testing.T) {
 	}
 }
 
-func TestLoginInfo(t *testing.T) {
-	get := func(demo *DemoLogin) string {
-		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/v1/login-info", nil)
+func TestAdminAuthDisabled(t *testing.T) {
+	get := func(disabled bool, path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
-		NewRouter(Deps{DemoLogin: demo}).ServeHTTP(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d", rec.Code)
-		}
-		return strings.TrimSpace(rec.Body.String())
+		NewRouter(Deps{
+			AdminAuth: newFakeAdminAuthStore(t, "admin@example.com", "secret-password"), JournalReader: &fakeJournalReader{},
+			AdminAuthDisabled: disabled,
+		}).ServeHTTP(rec, req)
+		return rec
 	}
 
-	if got := get(nil); got != `{"demo_login":null}` {
-		t.Errorf("without demo: %s", got)
+	if got := strings.TrimSpace(get(false, "/admin/v1/login-info").Body.String()); got != `{"auth_required":true}` {
+		t.Errorf("login-info with auth: %s", got)
 	}
-	if got := get(&DemoLogin{Email: "beta@docgen.test", Password: "beta-password-1"}); got != `{"demo_login":{"email":"beta@docgen.test","password":"beta-password-1"}}` {
-		t.Errorf("with demo: %s", got)
+	if rec := get(false, "/admin/v1/journal"); rec.Code != http.StatusUnauthorized {
+		t.Errorf("journal with auth, no session: status = %d", rec.Code)
+	}
+
+	if got := strings.TrimSpace(get(true, "/admin/v1/login-info").Body.String()); got != `{"auth_required":false}` {
+		t.Errorf("login-info without auth: %s", got)
+	}
+	if rec := get(true, "/admin/v1/journal"); rec.Code != http.StatusOK {
+		t.Errorf("journal without auth: status = %d", rec.Code)
+	}
+	rec := get(true, "/admin/v1/me")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Демо-режим") {
+		t.Errorf("me without auth: %d %s", rec.Code, rec.Body)
 	}
 }

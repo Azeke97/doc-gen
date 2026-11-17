@@ -56,11 +56,9 @@ type AdminConfig struct {
 	SessionTTL time.Duration `env:"SESSION_TTL" envDefault:"12h"`
 	// UIDir — каталог собранной админки (admin/dist); сервис раздаёт её по /admin/. Пусто — не раздаёт.
 	UIDir string `env:"UI_DIR"`
-	// DemoLogin показывает тестовую учётную запись на странице входа. Только для тестового
-	// стенда с тестовыми данными: пароль виден любому, кто открыл адрес.
-	DemoLogin    bool   `env:"DEMO_LOGIN" envDefault:"false"`
-	DemoEmail    string `env:"DEMO_EMAIL"`
-	DemoPassword string `env:"DEMO_PASSWORD"`
+	// AuthDisabled открывает админку без входа — для демо-стенда с тестовыми данными.
+	// Журнал показывает входные данные документов, поэтому в продуктиве вход обязателен.
+	AuthDisabled bool `env:"AUTH_DISABLED" envDefault:"false"`
 }
 
 // Config содержит конфигурацию приложения
@@ -80,9 +78,6 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("parse config: %w", err)
 	}
-	if err := cfg.Admin.validateDemo(); err != nil {
-		return Config{}, err
-	}
 	return cfg, nil
 }
 
@@ -94,29 +89,4 @@ func LoadDB() (DBConfig, error) {
 		return DBConfig{}, fmt.Errorf("parse db config: %w", err)
 	}
 	return cfg, nil
-}
-
-// MinDemoPassword — минимальная длина пароля тестовой учётной записи.
-const MinDemoPassword = 12
-
-// LoadAdminDemo читает только настройки тестовой учётной записи (для команды adminadd -demo).
-func LoadAdminDemo() (AdminConfig, error) {
-	cfg, err := env.ParseAsWithOptions[AdminConfig](env.Options{Prefix: "ADMIN_"})
-	if err != nil {
-		return AdminConfig{}, fmt.Errorf("parse admin config: %w", err)
-	}
-	if !cfg.DemoLogin {
-		return AdminConfig{}, fmt.Errorf("ADMIN_DEMO_LOGIN is not true: the demo account is for a test stand only")
-	}
-	return cfg, cfg.validateDemo()
-}
-
-func (c AdminConfig) validateDemo() error {
-	if !c.DemoLogin {
-		return nil
-	}
-	if c.DemoEmail == "" || len(c.DemoPassword) < MinDemoPassword {
-		return fmt.Errorf("ADMIN_DEMO_LOGIN=true needs ADMIN_DEMO_EMAIL and ADMIN_DEMO_PASSWORD of at least %d characters", MinDemoPassword)
-	}
-	return nil
 }

@@ -3,15 +3,16 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
 import { api, ApiError, type Project } from '../api'
-import { formatDateTime } from '../labels'
+import { errorText, formatDateTime } from '../labels'
 
 const projects = ref<Project[]>([])
 const loading = ref(false)
 
 const dialog = ref(false)
+const editing = ref<Project | null>(null) // null — создаём новый проект
 const saving = ref(false)
 const formRef = ref<FormInstance>()
-const form = reactive({ code: '', name: '' })
+const form = reactive({ code: '', name: '', retention_days: 365 })
 const rules: FormRules = {
   code: [
     { required: true, message: 'Укажите код', trigger: 'blur' },
@@ -25,28 +26,39 @@ async function load() {
   try {
     projects.value = await api.projects()
   } catch (e) {
-    ElMessage.error((e as Error).message)
+    ElMessage.error(errorText(e))
   } finally {
     loading.value = false
   }
 }
 
 function openCreate() {
-  form.code = ''
-  form.name = ''
+  editing.value = null
+  Object.assign(form, { code: '', name: '', retention_days: 365 })
   dialog.value = true
 }
 
-async function create() {
+function openEdit(p: Project) {
+  editing.value = p
+  Object.assign(form, { code: p.code, name: p.name, retention_days: p.retention_days })
+  dialog.value = true
+}
+
+async function save() {
   if (!(await formRef.value?.validate().catch(() => false))) return
   saving.value = true
   try {
-    await api.createProject({ ...form })
+    if (editing.value) {
+      await api.updateProject(editing.value.code, { name: form.name.trim(), retention_days: form.retention_days })
+      ElMessage.success('Проект изменён')
+    } else {
+      await api.createProject({ ...form })
+      ElMessage.success('Проект создан')
+    }
     dialog.value = false
-    ElMessage.success('Проект создан')
     await load()
   } catch (e) {
-    ElMessage.error(e instanceof ApiError && e.code === 'project_exists' ? 'Проект с таким кодом уже есть' : (e as Error).message)
+    ElMessage.error(e instanceof ApiError && e.code === 'project_exists' ? 'Проект с таким кодом уже есть' : errorText(e))
   } finally {
     saving.value = false
   }
@@ -64,28 +76,53 @@ onMounted(load)
     <p class="muted">Проект — портал, который выпускает документы: у него свои API-ключи, срок хранения документов и записи в журнале.</p>
 
     <el-table v-loading="loading" :data="projects" empty-text="Проектов пока нет">
-      <el-table-column prop="code" label="Код" width="220">
+      <el-table-column prop="code" label="Код" width="200">
         <template #default="{ row }"><span class="mono">{{ row.code }}</span></template>
       </el-table-column>
-      <el-table-column prop="name" label="Название" />
+      <el-table-column prop="name" label="Название" min-width="200" />
+      <el-table-column label="Срок хранения" width="160">
+        <template #default="{ row }">{{ row.retention_days }} дн.</template>
+      </el-table-column>
       <el-table-column label="Создан" width="180">
         <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
       </el-table-column>
+      <el-table-column label="" width="120" align="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openEdit(row)">Изменить</el-button>
+        </template>
+      </el-table-column>
     </el-table>
 
-    <el-dialog v-model="dialog" title="Новый проект" width="min(480px, 92vw)">
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="create">
-        <el-form-item label="Код" prop="code">
+    <el-dialog v-model="dialog" :title="editing ? `Проект ${editing.code}` : 'Новый проект'" width="min(480px, 92vw)">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="save">
+        <el-form-item v-if="!editing" label="Код" prop="code">
           <el-input v-model="form.code" placeholder="procurement" />
         </el-form-item>
         <el-form-item label="Название" prop="name">
           <el-input v-model="form.name" placeholder="Портал закупок" />
         </el-form-item>
+        <el-form-item label="Срок хранения документов, дней">
+          <el-input-number v-model="form.retention_days" :min="1" :max="36500" />
+          <div class="hint">
+            Наибольший срок, который портал может запросить для документа. После него документ удаляется
+            вместе с файлом и входными данными.<template v-if="editing"> Выпущенные документы сохраняют свой срок.</template>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialog = false">Отмена</el-button>
-        <el-button type="primary" :loading="saving" @click="create">Создать</el-button>
+        <el-button type="primary" :loading="saving" @click="save">{{ editing ? 'Сохранить' : 'Создать' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.hint {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+}
+</style>

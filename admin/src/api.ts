@@ -12,7 +12,80 @@ export interface Admin {
 export interface Project {
   code: string
   name: string
+  retention_days: number
   created_at: string
+}
+
+export type JournalStatus = 'created' | 'repeated' | 'rejected' | 'failed'
+
+export interface JournalEntry {
+  id: string
+  created_at: string
+  project: string
+  project_name: string
+  request_id: string
+  template_name: string | null
+  template_sha256: string | null
+  format: string | null
+  external_id: string | null
+  requested_by: string | null
+  idempotency_key: string | null
+  status: JournalStatus
+  http_status: number
+  error_code: string | null
+  error_message: string | null
+  error_details: Array<{ field?: string; part?: string; context?: string; message: string }> | null
+  document_id: string | null
+  result_size: number | null
+  duration_ms: number
+}
+
+export interface JournalPage {
+  items: JournalEntry[]
+  next_cursor: string | null
+}
+
+export interface JournalCard {
+  entry: JournalEntry
+  document_state: 'available' | 'expired' | 'deleted' | null
+  document: {
+    id: string
+    format: string
+    file_size: number
+    file_sha256: string
+    created_at: string
+    expires_at: string
+    expired: boolean
+    data: unknown
+  } | null
+}
+
+export interface JournalFilter {
+  project?: string
+  template_name?: string
+  external_id?: string
+  status?: JournalStatus[]
+  from?: string // YYYY-MM-DD, день по Астане
+  to?: string
+  cursor?: string
+}
+
+export interface ReportGroup {
+  project: string
+  project_name?: string
+  template_name?: string
+  created: number
+  errors: number
+  avg_duration_ms?: number
+}
+
+export interface Report {
+  from: string
+  to: string
+  totals: { requests: number; created: number; repeated: number; rejected: number; failed: number; avg_duration_ms: number }
+  by_project: ReportGroup[]
+  by_template: ReportGroup[]
+  by_day: Array<{ day: string; created: number; errors: number }>
 }
 
 export interface FieldError {
@@ -89,15 +162,20 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T)
 }
 
-/** Скачивает ответ как файл; имя берётся из Content-Disposition. */
-async function blob(path: string): Promise<{ blob: Blob; filename: string }> {
-  const res = await request('GET', path)
-  const match = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')
-  return { blob: await res.blob(), filename: match?.[1] ?? 'file' }
+/** Параметры запроса: пустые значения не отправляются, массивы — повторяющимся параметром. */
+function query(params: object): string {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) v.forEach((x) => q.append(k, String(x)))
+    else if (v !== undefined && v !== null && v !== '') q.append(k, String(v))
+  }
+  const s = q.toString()
+  return s ? '?' + s : ''
 }
 
 export const api = {
   isLoggedIn: () => getToken() !== null,
+  loginInfo: () => call<{ auth_required: boolean }>('GET', '/login-info'),
 
   async login(email: string, password: string) {
     const res = await call<{ token: string; expires_at: string }>('POST', '/login', { email, password })
@@ -113,15 +191,11 @@ export const api = {
   me: () => call<Admin>('GET', '/me'),
 
   projects: () => call<Project[]>('GET', '/projects'),
-  createProject: (p: { code: string; name: string }) => call<Project>('POST', '/projects', p),
-}
+  createProject: (p: { code: string; name: string; retention_days: number }) => call<Project>('POST', '/projects', p),
+  updateProject: (code: string, p: { name?: string; retention_days?: number }) =>
+    call<Project>('PATCH', `/projects/${encodeURIComponent(code)}`, p),
 
-/** Отдаёт браузеру Blob как скачиваемый файл. */
-export function saveBlob(b: Blob, filename: string) {
-  const url = URL.createObjectURL(b)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  journal: (f: JournalFilter & { limit?: number }) => call<JournalPage>('GET', '/journal' + query(f)),
+  journalEntry: (id: string) => call<JournalCard>('GET', `/journal/${id}`),
+  reports: (f: { project?: string; from?: string; to?: string }) => call<Report>('GET', '/reports' + query(f)),
 }

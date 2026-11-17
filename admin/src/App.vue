@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { currentAdmin, logout } from './session'
+import { authRequired, currentAdmin, logout } from './session'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,25 +17,38 @@ async function onLogout() {
 
 <template>
   <el-container v-if="currentAdmin && !route.meta.public" direction="vertical">
+    <div v-if="authRequired === false" class="demo-banner">
+      Демо-режим: вход отключён, журнал открыт всем, у кого есть адрес. Только для тестовых данных.
+    </div>
     <header class="top">
       <div class="top-inner">
         <router-link to="/" class="brand">DocGen</router-link>
         <el-menu mode="horizontal" :default-active="section" router :ellipsis="false" class="nav">
+          <el-menu-item index="/journal">Журнал</el-menu-item>
+          <el-menu-item index="/reports">Отчёты</el-menu-item>
           <el-menu-item index="/projects">Проекты</el-menu-item>
         </el-menu>
-        <div class="user">
+        <div v-if="authRequired !== false" class="user">
           <span class="muted">{{ currentAdmin.name }}</span>
           <el-button link @click="onLogout">Выйти</el-button>
         </div>
       </div>
     </header>
-    <!-- key: при смене только параметра (другой шаблон) страница создаётся заново, а не показывает старые данные -->
-    <main><router-view :key="route.fullPath" /></main>
+    <main><router-view :key="route.path" /></main>
   </el-container>
   <router-view v-else />
 </template>
 
 <style scoped>
+.demo-banner {
+  background: var(--el-color-warning-light-9);
+  color: var(--el-color-warning-dark-2);
+  border-bottom: 1px solid var(--el-color-warning-light-7);
+  text-align: center;
+  font-size: 13px;
+  padding: 6px 16px;
+}
+
 .top {
   background: #fff;
   border-bottom: 1px solid var(--el-border-color-light);

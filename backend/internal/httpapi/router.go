@@ -19,8 +19,8 @@ type Deps struct {
 	Documents       DocumentService
 	Journal         JournalStore
 	JournalReader   JournalReader
-	// DemoLogin — тестовая учётная запись для страницы входа; nil — не показывать.
-	DemoLogin *DemoLogin
+	// AdminAuthDisabled открывает админку без входа (демо-стенд).
+	AdminAuthDisabled bool
 	// AdminUI — собранная админка; nil — сервис её не раздаёт.
 	AdminUI http.Handler
 }
@@ -51,10 +51,10 @@ func NewRouter(deps Deps) http.Handler {
 
 	r.Route("/admin/v1", func(r chi.Router) {
 		r.Post("/login", loginHandler(deps.AdminAuth, deps.AdminSessionTTL))
-		r.Get("/login-info", loginInfoHandler(deps.DemoLogin))
+		r.Get("/login-info", loginInfoHandler(deps.AdminAuthDisabled))
 
 		r.Group(func(r chi.Router) {
-			r.Use(requireAdmin(deps.AdminAuth))
+			r.Use(requireAdmin(deps.AdminAuth, deps.AdminAuthDisabled))
 
 			r.Post("/logout", logoutHandler(deps.AdminAuth))
 			r.Get("/me", meHandler)

@@ -409,31 +409,21 @@ paths:
 
   /admin/v1/login-info:
     get:
-      summary: Что показать на странице входа
-      description: |
-        demo_login — тестовая учётная запись бета-теста; есть только на тестовом стенде
-        с ADMIN_DEMO_LOGIN=true, иначе null.
+      summary: Нужен ли вход в админку
+      description: auth_required=false — демо-стенд с ADMIN_AUTH_DISABLED=true, админка открыта без входа.
       tags: [admin]
       security: []
       responses:
         "200":
-          description: Сведения для страницы входа
+          description: Режим входа
           content:
             application/json:
               schema:
                 type: object
-                required: [demo_login]
+                required: [auth_required]
                 properties:
-                  demo_login:
-                    oneOf:
-                      - type: "null"
-                      - type: object
-                        required: [email, password]
-                        properties:
-                          email:
-                            type: string
-                          password:
-                            type: string
+                  auth_required:
+                    type: boolean
 
   /admin/v1/journal:
     get:

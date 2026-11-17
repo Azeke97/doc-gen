@@ -4,7 +4,7 @@ DocGen is a standalone service shared by the company's portals: a portal sends a
 
 Spec: `docs/ТЗ DocGen ред. 2.docx` (redaction 2, approved). The user edits it in `~/Загрузки/ТЗ DocGen ред. 2.docx`; when they say it changed, copy it into `docs/` and commit. Out of scope by the spec: a template registry, HTML templates, template editors, signatures, QR/verification pages, workflow.
 
-The refactor from redaction 1 is in progress: stages 1–6 are done (DOCX engine, LibreOffice conversion, schema, new portal API, removal of the registry/HTML/QR code, admin API for the journal and reports). Still to do: admin UI screens for the journal and reports, API key commands (list, revoke), DOCX golden tests.
+The refactor from redaction 1 is in progress: stages 1–7 are done (DOCX engine, LibreOffice conversion, schema, new portal API, removal of the registry/HTML/QR code, admin API and UI for the journal and reports). Still to do: API key commands (list, revoke), DOCX golden tests.
 
 ## Stack
 
@@ -18,7 +18,7 @@ The refactor from redaction 1 is in progress: stages 1–6 are done (DOCX engine
 - `make up` / `make down` — start/stop Postgres, MinIO, Gotenberg.
 - `make run`, `make migrate-up`, `make migration name=...`, `make generate` (sqlc).
 - `make keygen name=... project=...` — issue a portal API key (printed once).
-- `make admin-add email=... name=...` — create an admin (password printed once). `make admin-demo` — create or refresh the beta-test account from `ADMIN_DEMO_EMAIL`/`ADMIN_DEMO_PASSWORD` (refuses unless `ADMIN_DEMO_LOGIN=true`). `make admin-disable email=...` — block an admin and close their sessions (after the beta).
+- `make admin-add email=... name=...` — create an admin (password printed once). `make admin-disable email=...` — block an admin and close their sessions.
 - `make admin-install` / `make admin-dev` (Vite on :5173, proxies `/admin/v1` to `make run` on :8080) / `make admin-build` (→ `admin/dist`).
 - `make check` — lint + unit tests; `make test-integration` — tests against real Postgres/MinIO/Gotenberg (needs `make up` and the dev DB at the latest migration).
 
@@ -42,7 +42,7 @@ The refactor from redaction 1 is in progress: stages 1–6 are done (DOCX engine
   - `GET /documents/{id}` (metadata), `GET /documents/{id}/file` (checked against its SHA-256). Another project's document is `404`, an expired one is `410`.
   - `GET /whoami` — which portal the key belongs to.
 - Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`; read-only except projects):
-  - `GET /login-info` (no session) → `{demo_login: {email, password} | null}`; the account is shown only when `ADMIN_DEMO_LOGIN=true` (test stand with test data only; startup fails if email or a ≥12-char password is missing, and logs a warning).
+  - `GET /login-info` (no session) → `{auth_required}`. With `ADMIN_AUTH_DISABLED=true` (demo stand with test data only — the journal shows document input data) every admin route works without a session as the actor `demo` / «Демо-режим»; the service logs a warning at startup and the UI shows a banner. Default: login required.
   - `POST /logout`, `GET /me`, `GET|POST /projects` (`retention_days`, default 365), `PATCH /projects/{code}` (`name`, `retention_days` — affects documents issued afterwards).
   - `GET /journal` — filters `project`, `template_name`, `external_id`, `status` (repeatable), `from`/`to` (a date is an Astana day, `to` inclusive; or RFC 3339), `limit` ≤200; keyset pages by `(created_at, id)` with an opaque `cursor`/`next_cursor`.
   - `GET /journal/{id}` — the entry plus `document_state`: `available` (input data included), `expired` (data hidden), `deleted` (removed by retention), `null` (no document).
@@ -73,7 +73,7 @@ The refactor from redaction 1 is in progress: stages 1–6 are done (DOCX engine
 
 - Vue 3 + TypeScript + Vite + Element Plus (imported whole, Russian locale), vue-router with hash history; no state library.
 - `src/api.ts` is the only place that talks to `/admin/v1`: token in `localStorage`, errors as `ApiError`, 401 sends to the login page. `src/labels.ts` — dates in `Asia/Almaty`.
-- Screens now: login, projects. Served by the Go service at `/admin/` when `ADMIN_UI_DIR` points to the built `admin/dist` (`httpapi.AdminUI`, strict CSP; `frame-ancestors 'self'` so blob: PDFs can be shown in a frame). `npm run build` runs `vue-tsc` first.
+- Screens: login (skipped when `auth_required` is false), journal (`/journal`: filters in the URL query — portal, template, external ID, statuses, Astana date range; text filters debounced; «Показать ещё» uses `next_cursor`), request card (`/journal/:id`: metadata, error with per-field or per-tag details, document state, input data while kept), reports (`/reports`: totals, by portal, by day, by template; default last 30 days), projects (create/edit with retention). `<router-view :key="route.path">` remounts a page when the path changes but not when only the query does. Served by the Go service at `/admin/` when `ADMIN_UI_DIR` points to the built `admin/dist` (`httpapi.AdminUI`, strict CSP; `frame-ancestors 'self'` so blob: PDFs can be shown in a frame). `npm run build` runs `vue-tsc` first.
 
 ## Security decisions
 

@@ -140,33 +140,3 @@ func (q *Queries) GetAdminBySessionToken(ctx context.Context, tokenHash []byte) 
 	err := row.Scan(&i.ID, &i.Email, &i.Name)
 	return i, err
 }
-
-const upsertAdminUser = `-- name: UpsertAdminUser :one
-INSERT INTO admin_users (email, name, password_hash)
-VALUES ($1, $2, $3)
-ON CONFLICT (email) DO UPDATE
-    SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, disabled_at = NULL
-RETURNING id, email, name, password_hash, disabled_at, created_at, updated_at
-`
-
-type UpsertAdminUserParams struct {
-	Email        string
-	Name         string
-	PasswordHash string
-}
-
-// Тестовая учётная запись бета-теста: создаётся или получает пароль из настроек заново.
-func (q *Queries) UpsertAdminUser(ctx context.Context, arg UpsertAdminUserParams) (AdminUser, error) {
-	row := q.db.QueryRow(ctx, upsertAdminUser, arg.Email, arg.Name, arg.PasswordHash)
-	var i AdminUser
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Name,
-		&i.PasswordHash,
-		&i.DisabledAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}

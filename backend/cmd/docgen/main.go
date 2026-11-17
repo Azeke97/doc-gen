@@ -89,10 +89,8 @@ func main() {
 		go documentService.RunCleanup(ctx, cfg.Documents.CleanupInterval, cfg.Documents.CleanupBatch)
 	}
 
-	var demo *httpapi.DemoLogin
-	if cfg.Admin.DemoLogin {
-		demo = &httpapi.DemoLogin{Email: cfg.Admin.DemoEmail, Password: cfg.Admin.DemoPassword}
-		slog.Warn("demo admin login is shown on the login page: use only on a test stand with test data", "email", demo.Email)
+	if cfg.Admin.AuthDisabled {
+		slog.Warn("admin login is disabled: anyone who reaches /admin/ sees the journal and document data; use only on a demo stand with test data")
 	}
 
 	var adminUI http.Handler
@@ -104,16 +102,16 @@ func main() {
 	serv := &http.Server{
 		Addr: cfg.HTTP.Addr,
 		Handler: httpapi.NewRouter(httpapi.Deps{
-			Logger:          logger,
-			APIClients:      queries,
-			AdminAuth:       queries,
-			AdminSessionTTL: cfg.Admin.SessionTTL,
-			Projects:        queries,
-			Documents:       documentService,
-			Journal:         queries,
-			JournalReader:   queries,
-			DemoLogin:       demo,
-			AdminUI:         adminUI,
+			Logger:            logger,
+			APIClients:        queries,
+			AdminAuth:         queries,
+			AdminSessionTTL:   cfg.Admin.SessionTTL,
+			Projects:          queries,
+			Documents:         documentService,
+			Journal:           queries,
+			JournalReader:     queries,
+			AdminAuthDisabled: cfg.Admin.AuthDisabled,
+			AdminUI:           adminUI,
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
