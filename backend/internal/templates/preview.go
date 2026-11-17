@@ -74,6 +74,31 @@ func (s *Service) Preview(ctx context.Context, versionID uuid.UUID, trace string
 	return pdf, nil
 }
 
+// VersionFile возвращает файл версии (сверенный с SHA-256) и её шаблон: администратор
+// скачивает его, чтобы поправить и загрузить следующей версией.
+func (s *Service) VersionFile(ctx context.Context, versionID uuid.UUID) (db.Template, db.TemplateVersion, []byte, error) {
+	q := db.New(s.pool)
+
+	version, err := q.GetTemplateVersion(ctx, versionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.Template{}, db.TemplateVersion{}, nil, ErrVersionNotFound
+	}
+	if err != nil {
+		return db.Template{}, db.TemplateVersion{}, nil, fmt.Errorf("get version: %w", err)
+	}
+
+	tmpl, err := q.GetTemplate(ctx, version.TemplateID)
+	if err != nil {
+		return db.Template{}, db.TemplateVersion{}, nil, fmt.Errorf("get template: %w", err)
+	}
+
+	content, err := s.LoadFile(ctx, version.FileKey, version.FileSha256)
+	if err != nil {
+		return db.Template{}, db.TemplateVersion{}, nil, err
+	}
+	return tmpl, version, content, nil
+}
+
 // LoadFile читает файл версии из хранилища и сверяет его с SHA-256 из базы:
 // подменённый в хранилище файл не должен попасть в документ.
 func (s *Service) LoadFile(ctx context.Context, key string, sha []byte) ([]byte, error) {

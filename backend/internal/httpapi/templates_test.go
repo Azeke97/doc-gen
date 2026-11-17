@@ -28,6 +28,10 @@ type fakeTemplateService struct {
 
 	pdf      []byte
 	gotTrace string
+
+	tmpl    db.Template
+	version db.TemplateVersion
+	file    []byte
 }
 
 func (f *fakeTemplateService) Create(_ context.Context, actor string, p templates.CreateParams) (db.Template, error) {
@@ -36,6 +40,16 @@ func (f *fakeTemplateService) Create(_ context.Context, actor string, p template
 		return db.Template{}, f.err
 	}
 	return db.Template{ID: uuid.New(), Project: p.Project, Code: p.Code, Locale: p.Locale, Status: "draft"}, nil
+}
+
+func (f *fakeTemplateService) Get(_ context.Context, id uuid.UUID) (db.Template, error) {
+	f.gotIDs = []uuid.UUID{id}
+	return f.tmpl, f.err
+}
+
+func (f *fakeTemplateService) VersionFile(_ context.Context, versionID uuid.UUID) (db.Template, db.TemplateVersion, []byte, error) {
+	f.gotIDs = []uuid.UUID{versionID}
+	return f.tmpl, f.version, f.file, f.err
 }
 
 func (f *fakeTemplateService) List(_ context.Context, project string) ([]db.Template, error) {

@@ -1,0 +1,56 @@
+:root {
+  --page-bg: #f5f7fa;
+}
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--el-text-color-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.mono {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 13px;
+}
+
+.muted {
+  color: var(--el-text-color-secondary);
+}
+
+.json {
+  margin: 0;
+  padding: 12px;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 13px;
+  white-space: pre;
+}
+
+.clickable-rows .el-table__row {
+  cursor: pointer;
+}

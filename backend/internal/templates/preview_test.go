@@ -96,3 +96,36 @@ func TestPreviewErrors(t *testing.T) {
 		t.Errorf("docx: err = %v, want ErrPreviewNotSupported", err)
 	}
 }
+
+func TestGetAndVersionFile(t *testing.T) {
+	svc, _, project := newTestService(t)
+	ctx := t.Context()
+
+	tmpl, err := svc.Create(ctx, "alice", validParams(project))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	got, err := svc.Get(ctx, tmpl.ID)
+	if err != nil || got.ID != tmpl.ID || got.Code != tmpl.Code {
+		t.Errorf("Get = %+v, %v", got, err)
+	}
+	if _, err := svc.Get(ctx, uuid.New()); !errors.Is(err, ErrTemplateNotFound) {
+		t.Errorf("Get unknown: err = %v, want ErrTemplateNotFound", err)
+	}
+
+	page := []byte(`<!doctype html><html><head><title>t</title></head><body>{{.title}}</body></html>`)
+	version, _, err := svc.UploadVersion(ctx, "alice", tmpl.ID, UploadParams{
+		File: page, Schema: testSchema, TestData: json.RawMessage(`{"title":"x"}`),
+	})
+	if err != nil {
+		t.Fatalf("UploadVersion: %v", err)
+	}
+
+	fileTmpl, fileVersion, content, err := svc.VersionFile(ctx, version.ID)
+	if err != nil || !bytes.Equal(content, page) || fileTmpl.ID != tmpl.ID || fileVersion.ID != version.ID {
+		t.Errorf("VersionFile = %q, %v", content, err)
+	}
+	if _, _, _, err := svc.VersionFile(ctx, uuid.New()); !errors.Is(err, ErrVersionNotFound) {
+		t.Errorf("VersionFile unknown: err = %v, want ErrVersionNotFound", err)
+	}
+}

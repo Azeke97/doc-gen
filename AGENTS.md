@@ -15,7 +15,15 @@ DocGen is a standalone service shared by the company's portals: given a template
 - `make run`, `make migrate-up`, `make migration name=...`, `make generate` (sqlc).
 - `make keygen name=... project=...` — issue a portal API key (printed once).
 - `make admin-add email=... name=...` — create an admin (password printed once).
+- `make admin-install` / `make admin-dev` (Vite on :5173, proxies `/admin/v1` to `make run` on :8080) / `make admin-build` (→ `admin/dist`).
 - `make check` — lint + unit tests; `make test-integration` — tests against real Postgres/MinIO/Gotenberg (needs `make up`).
+
+## Admin UI (`admin/`)
+
+- Vue 3 + TypeScript + Vite + Element Plus (imported whole, Russian locale), vue-router with hash history; no state library.
+- `src/api.ts` — the only place that talks to `/admin/v1`: token in `localStorage`, errors as `ApiError` (`code`, `fieldErrors`, `diff` for `breaking_changes`), 401 sends to the login page. `src/labels.ts` — Russian labels, dates in `Asia/Almaty`, `errorText` for known error codes.
+- Screens: login, projects, templates (filter by project in the URL), template card with versions: upload (schema and test data prefilled from the latest version), publish → offer to activate, activate/rollback, preview PDF in a dialog, schema diff, schema/test data, download the version file. A `409 breaking_changes` shows the changes and repeats the call with `?confirm_breaking=true` only after explicit confirmation.
+- Served by the Go service at `/admin/` when `ADMIN_UI_DIR` points to the built `admin/dist` (`httpapi.AdminUI`, strict CSP; `frame-ancestors 'self'` because the blob: preview PDF inherits the page policy). `npm run build` runs `vue-tsc` first.
 
 ## Layout (`backend/`)
 
@@ -36,7 +44,7 @@ DocGen is a standalone service shared by the company's portals: given a template
 
 - Portal (`/v1`, header `X-API-Key: dg_...`): `GET /whoami`, `GET /templates`, `GET /templates/{code}/schema?locale=&version=`, `POST /documents` (header `Idempotency-Key` required, body up to 5 MiB; 201 new, 200 repeat), `GET /documents/{id}`, `GET /documents/{id}/file`. The project always comes from the key, never from the request; another project's document is `404`, an expired one is `410`; files are checked against their SHA-256 before sending.
 - Public (no key): `GET /v1/verify/{public_id}` — where the QR code points. Browsers (`Accept` has `text/html`) get a bilingual ru/kk page (`httpapi/verify.html`, no JS, strict CSP), others get JSON; both `200` / `404` (also for a malformed id) / `410` (expired). Shows only template name, project name, issue time, SHA-256, size and the signers list (empty until CMS signatures exist) — never the input data, `external_id` or the file.
-- Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`): projects, templates, version upload (multipart), publish, diff, activate (also rollback), archive, PDF preview of a version on its test data (`GET /versions/{id}/preview`, html engine only).
+- Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`): projects, templates, version upload (multipart), publish, diff, activate (also rollback), archive, `GET /templates/{id}`, PDF preview of a version on its test data (`GET /versions/{id}/preview`, html engine only), download of a version file (`GET /versions/{id}/file`, always `attachment` + `octet-stream`).
 - Errors: `{"error": {"code", "message", "details?"}}`; `details` holds per-field errors or a schema diff. A JSON body over its limit is `413 request_too_large`.
 
 ## Domain rules

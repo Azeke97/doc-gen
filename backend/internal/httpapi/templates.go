@@ -16,12 +16,14 @@ import (
 // TemplateService — то, что обработчикам шаблонов нужно от сервиса шаблонов.
 type TemplateService interface {
 	Create(ctx context.Context, actor string, p templates.CreateParams) (db.Template, error)
+	Get(ctx context.Context, id uuid.UUID) (db.Template, error)
 	List(ctx context.Context, project string) ([]db.Template, error)
 	UploadVersion(ctx context.Context, actor string, templateID uuid.UUID, p templates.UploadParams) (db.TemplateVersion, bool, error)
 	ListVersions(ctx context.Context, templateID uuid.UUID) ([]db.TemplateVersion, error)
 	Publish(ctx context.Context, actor string, versionID uuid.UUID, opts templates.PublishOptions) (db.TemplateVersion, error)
 	DiffVersion(ctx context.Context, versionID uuid.UUID) (templates.VersionDiff, error)
 	Preview(ctx context.Context, versionID uuid.UUID, trace string) ([]byte, error)
+	VersionFile(ctx context.Context, versionID uuid.UUID) (db.Template, db.TemplateVersion, []byte, error)
 	Activate(ctx context.Context, actor string, templateID, versionID uuid.UUID, opts templates.ActivateOptions) (db.Template, error)
 	Archive(ctx context.Context, actor string, templateID uuid.UUID) (db.Template, error)
 }
@@ -97,6 +99,23 @@ func listTemplatesHandler(svc TemplateService) http.HandlerFunc {
 		}
 
 		writeJSON(w, r, http.StatusOK, resp)
+	}
+}
+
+func getTemplateHandler(svc TemplateService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := parseUUIDParam(w, r, "id")
+		if !ok {
+			return
+		}
+
+		tmpl, err := svc.Get(r.Context(), id)
+		if err != nil {
+			writeTemplateError(w, r, err)
+			return
+		}
+
+		writeJSON(w, r, http.StatusOK, toTemplateResponse(tmpl))
 	}
 }
 

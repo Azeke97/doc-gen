@@ -3,8 +3,11 @@ package httpapi
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -120,6 +123,33 @@ func listVersionsHandler(svc TemplateService) http.HandlerFunc {
 		}
 
 		writeJSON(w, r, http.StatusOK, resp)
+	}
+}
+
+// versionFileHandler отдаёт файл версии на скачивание. Всегда attachment и octet-stream:
+// HTML шаблона не должен открыться страницей на адресе админки.
+func versionFileHandler(svc TemplateService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		versionID, ok := parseUUIDParam(w, r, "id")
+		if !ok {
+			return
+		}
+
+		tmpl, version, content, err := svc.VersionFile(r.Context(), versionID)
+		if err != nil {
+			writeTemplateError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-%s-v%d.%s"`, tmpl.Code, tmpl.Locale, version.Version, tmpl.Engine))
+		w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(content); err != nil { //nolint:gosec // octet-stream, attachment и nosniff: браузер не выполнит файл как HTML
+			slog.ErrorContext(r.Context(), "write version file", "err", err)
+		}
 	}
 }
 

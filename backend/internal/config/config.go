@@ -53,6 +53,8 @@ type DocumentsConfig struct {
 // AdminConfig содержит настройки входа в админку.
 type AdminConfig struct {
 	SessionTTL time.Duration `env:"SESSION_TTL" envDefault:"12h"`
+	// UIDir — каталог собранной админки (admin/dist); сервис раздаёт её по /admin/. Пусто — не раздаёт.
+	UIDir string `env:"UI_DIR"`
 }
 
 // Config содержит конфигурацию приложения

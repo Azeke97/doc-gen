@@ -41,6 +41,20 @@ run: ## Запустить сервис docgen
 build: ## Собрать бинарники в backend/bin
 	cd $(BACKEND) && go build -o bin/docgen ./cmd/docgen && go build -o bin/migrate ./cmd/migrate
 
+## ---------- Админка (Vue, admin/) ----------
+
+.PHONY: admin-install
+admin-install: ## Установить зависимости админки
+	cd admin && npm ci
+
+.PHONY: admin-dev
+admin-dev: ## Админка в режиме разработки на :5173 (API — запущенный make run)
+	cd admin && npm run dev
+
+.PHONY: admin-build
+admin-build: ## Собрать админку в admin/dist (сервис раздаёт её по /admin/, если задан ADMIN_UI_DIR)
+	cd admin && npm run build
+
 ## ---------- База данных ----------
 
 .PHONY: migrate-up

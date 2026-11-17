@@ -19,6 +19,8 @@ type Deps struct {
 	Templates       TemplateService
 	PortalTemplates PortalTemplateService
 	Documents       DocumentService
+	// AdminUI — собранная админка; nil — сервис её не раздаёт.
+	AdminUI http.Handler
 }
 
 // NewRouter собирает все маршруты API.
@@ -64,15 +66,22 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/projects", listProjectsHandler(deps.Projects))
 			r.Post("/templates", createTemplateHandler(deps.Templates))
 			r.Get("/templates", listTemplatesHandler(deps.Templates))
+			r.Get("/templates/{id}", getTemplateHandler(deps.Templates))
 			r.Post("/templates/{id}/versions", uploadVersionHandler(deps.Templates))
 			r.Get("/templates/{id}/versions", listVersionsHandler(deps.Templates))
 			r.Post("/templates/{id}/activate", activateTemplateHandler(deps.Templates))
 			r.Post("/templates/{id}/archive", archiveTemplateHandler(deps.Templates))
 			r.Get("/versions/{id}/diff", diffVersionHandler(deps.Templates))
+			r.Get("/versions/{id}/file", versionFileHandler(deps.Templates))
 			r.Get("/versions/{id}/preview", previewVersionHandler(deps.Templates))
 			r.Post("/versions/{id}/publish", publishVersionHandler(deps.Templates))
 		})
 	})
+
+	if deps.AdminUI != nil {
+		r.Get("/admin", http.RedirectHandler("/admin/", http.StatusMovedPermanently).ServeHTTP)
+		r.Handle("/admin/*", http.StripPrefix("/admin", deps.AdminUI))
+	}
 
 	return r
 }

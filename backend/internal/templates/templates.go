@@ -175,6 +175,18 @@ func (s *Service) Create(ctx context.Context, actor string, p CreateParams) (db.
 	return tmpl, nil
 }
 
+// Get возвращает шаблон по id.
+func (s *Service) Get(ctx context.Context, id uuid.UUID) (db.Template, error) {
+	tmpl, err := db.New(s.pool).GetTemplate(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.Template{}, ErrTemplateNotFound
+	}
+	if err != nil {
+		return db.Template{}, fmt.Errorf("get template: %w", err)
+	}
+	return tmpl, nil
+}
+
 // List возвращает шаблоны проекта; пустой project — все шаблоны.
 func (s *Service) List(ctx context.Context, project string) ([]db.Template, error) {
 	var filter *string

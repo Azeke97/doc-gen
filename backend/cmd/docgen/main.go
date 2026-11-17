@@ -90,6 +90,12 @@ func main() {
 		go documentService.RunCleanup(ctx, cfg.Documents.CleanupInterval, cfg.Documents.CleanupBatch)
 	}
 
+	var adminUI http.Handler
+	if cfg.Admin.UIDir != "" {
+		adminUI = httpapi.AdminUI(cfg.Admin.UIDir)
+		slog.Info("serving admin ui", "dir", cfg.Admin.UIDir)
+	}
+
 	serv := &http.Server{
 		Addr: cfg.HTTP.Addr,
 		Handler: httpapi.NewRouter(httpapi.Deps{
@@ -101,6 +107,7 @@ func main() {
 			Templates:       templateService,
 			PortalTemplates: templateService,
 			Documents:       documentService,
+			AdminUI:         adminUI,
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
