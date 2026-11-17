@@ -39,6 +39,8 @@ type S3Config struct {
 type GotenbergConfig struct {
 	URL     string        `env:"URL,required"`
 	Timeout time.Duration `env:"TIMEOUT" envDefault:"10s"`
+	// MaxConcurrency — сколько конвертаций одновременно отправлять в Gotenberg.
+	MaxConcurrency int `env:"MAX_CONCURRENCY" envDefault:"4"`
 }
 
 // DocumentsConfig содержит настройки выпуска документов.

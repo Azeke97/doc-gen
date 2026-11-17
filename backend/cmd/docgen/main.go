@@ -82,7 +82,7 @@ func main() {
 	slog.Info("storage ready", "endpoint", cfg.S3.Endpoint)
 
 	queries := db.New(pool)
-	pdf := gotenberg.New(cfg.Gotenberg.URL, cfg.Gotenberg.Timeout)
+	pdf := gotenberg.New(cfg.Gotenberg.URL, cfg.Gotenberg.Timeout).WithConcurrency(cfg.Gotenberg.MaxConcurrency)
 	templateService := templates.NewService(pool, store, cfg.S3.TemplatesBucket, pdf, cfg.Documents.VerifyURL)
 	documentService := documents.NewService(pool, templateService, pdf, store, cfg.S3.DocumentsBucket, cfg.Documents.VerifyURL)
 
