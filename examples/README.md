@@ -16,6 +16,8 @@
 
 ## Как запустить
 
+Через Postman — коллекция и инструкция в [postman/](postman/README.md). Из консоли:
+
 Нужны `make up`, `make run` и ключ портала (`make keygen ...`).
 
 ```bash

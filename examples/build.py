@@ -138,7 +138,22 @@ def build(html: pathlib.Path) -> None:
     print(f"{target.relative_to(ROOT.parent)}")
 
 
+def build_broken() -> None:
+    """Шаблон с ошибкой для проверки 422: из протокола вскрытия убран первый {{/each}}."""
+    src = ROOT / "opening" / "template.docx"
+    target = ROOT / "broken" / "unclosed_each.docx"
+    target.parent.mkdir(exist_ok=True)
+    with zipfile.ZipFile(src) as z:
+        files = {n: z.read(n) for n in z.namelist()}
+    files["word/document.xml"] = files["word/document.xml"].replace(b"{{/each}}", b"", 1)
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in files.items():
+            z.writestr(name, data)
+    print(f"{target.relative_to(ROOT.parent)}")
+
+
 if __name__ == "__main__":
     for html in sorted(ROOT.glob("*/template.html")):
         build(html)
+    build_broken()
     sys.exit(0)
