@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { api, ApiError, saveBlob, type Project, type SchemaDiff, type Template, type TemplateVersion } from '../api'
+import PdfDialog from '../components/PdfDialog.vue'
 import SchemaChanges from '../components/SchemaChanges.vue'
 import UploadVersionDialog from '../components/UploadVersionDialog.vue'
 import { errorText, formatDateTime, localeLabels, prettyJSON, templateStatus, versionStatus } from '../labels'
@@ -137,15 +138,12 @@ async function archive() {
 
 // ---- просмотр: PDF, схема, изменения ----
 
-const pdf = ref<{ url: string; title: string; filename: string } | null>(null)
-const pdfVisible = ref(false)
+const pdfDialog = ref<InstanceType<typeof PdfDialog>>()
 
 function preview(v: TemplateVersion) {
   return act(v, async () => {
     const { blob, filename } = await api.preview(v.id)
-    if (pdf.value) URL.revokeObjectURL(pdf.value.url)
-    pdf.value = { url: URL.createObjectURL(blob), title: `Предпросмотр версии ${v.version} на тестовых данных`, filename }
-    pdfVisible.value = true
+    pdfDialog.value?.show(blob, `Предпросмотр версии ${v.version} на тестовых данных`, filename)
   })
 }
 
@@ -179,9 +177,6 @@ function showDiff(v: TemplateVersion) {
 const uploadVisible = ref(false)
 
 onMounted(load)
-onBeforeUnmount(() => {
-  if (pdf.value) URL.revokeObjectURL(pdf.value.url)
-})
 </script>
 
 <template>
@@ -202,9 +197,10 @@ onBeforeUnmount(() => {
           </h1>
         </div>
         <div v-if="!archived" class="actions">
-          <el-button type="primary" @click="uploadVisible = true">
-            {{ draft ? 'Заменить черновик' : 'Загрузить версию' }}
+          <el-button type="primary" @click="$router.push(`/templates/${template.id}/edit`)">
+            {{ draft ? 'Редактировать черновик' : 'Редактировать' }}
           </el-button>
+          <el-button @click="uploadVisible = true">Загрузить файл</el-button>
           <el-button @click="archive">В архив</el-button>
         </div>
       </div>
@@ -224,7 +220,7 @@ onBeforeUnmount(() => {
         show-icon
         :closable="false"
         class="hint"
-        :title="versions.length ? 'Опубликуйте версию и сделайте её активной — тогда порталы смогут выпускать документы.' : 'Загрузите первую версию: файл шаблона, схему данных и тестовые данные.'"
+        :title="versions.length ? 'Опубликуйте версию и сделайте её активной — тогда порталы смогут выпускать документы.' : 'Создайте первую версию в редакторе или загрузите файл шаблона со схемой данных и тестовыми данными.'"
       />
 
       <h2>Версии</h2>
@@ -306,6 +302,7 @@ onBeforeUnmount(() => {
       :schema="prettyJSON(latest?.data_schema)"
       :test-data="prettyJSON(latest?.test_data)"
       :has-draft="!!draft"
+      :expected-draft="draft?.updated_at ?? 'none'"
       @uploaded="load"
     />
 
@@ -346,13 +343,7 @@ onBeforeUnmount(() => {
       <p class="muted small">SHA-256 файла: <span class="mono">{{ details?.file_sha256 }}</span></p>
     </el-dialog>
 
-    <el-dialog v-model="pdfVisible" :title="pdf?.title" width="min(1100px, 96vw)" top="3vh" class="pdf-dialog">
-      <iframe v-if="pdf" :src="pdf.url" class="pdf" title="PDF" />
-      <template #footer>
-        <el-button v-if="pdf" tag="a" :href="pdf.url" :download="pdf.filename">Скачать PDF</el-button>
-        <el-button type="primary" @click="pdfVisible = false">Закрыть</el-button>
-      </template>
-    </el-dialog>
+    <PdfDialog ref="pdfDialog" />
   </div>
 </template>
 
@@ -410,10 +401,4 @@ h2 {
   margin-left: 0;
 }
 
-.pdf {
-  width: 100%;
-  height: 75vh;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 4px;
-}
 </style>

@@ -30,7 +30,8 @@ async function onLogout() {
         </div>
       </div>
     </header>
-    <main><router-view /></main>
+    <!-- key: при смене только параметра (другой шаблон) страница создаётся заново, а не показывает старые данные -->
+    <main><router-view :key="route.fullPath" /></main>
   </el-container>
   <router-view v-else />
 </template>

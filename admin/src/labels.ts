@@ -48,6 +48,7 @@ const errorTexts: Record<string, string> = {
   template_not_found: 'Шаблон не найден',
   version_not_found: 'Версия не найдена',
   request_too_large: 'Файл слишком большой',
+  draft_changed: 'Черновик за это время изменил другой пользователь',
 }
 
 /** Понятный текст ошибки API, после двоеточия — сообщение сервера. */

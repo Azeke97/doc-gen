@@ -15,6 +15,8 @@ export const router = createRouter({
     { path: '/login', component: LoginView, meta: { public: true } },
     { path: '/templates', component: TemplatesView },
     { path: '/templates/:id', component: TemplateView, props: true },
+    // Редактор тянет CodeMirror — грузим его отдельным файлом, только когда он нужен.
+    { path: '/templates/:id/edit', component: () => import('./views/TemplateEditorView.vue'), props: true },
     { path: '/projects', component: ProjectsView },
     { path: '/:pathMatch(.*)*', redirect: '/templates' },
   ],

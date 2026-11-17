@@ -5,7 +5,7 @@ import { ref, watch } from 'vue'
 import { api, ApiError, type FieldError } from '../api'
 import { errorText } from '../labels'
 
-const props = defineProps<{ templateId: string; schema: string; testData: string; hasDraft: boolean }>()
+const props = defineProps<{ templateId: string; schema: string; testData: string; hasDraft: boolean; expectedDraft: string }>()
 const visible = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ uploaded: [] }>()
 
@@ -16,12 +16,14 @@ const testData = ref('')
 const saving = ref(false)
 const error = ref('')
 const fieldErrors = ref<FieldError[]>([])
+const expected = ref('none') // каким был черновик, когда открыли диалог
 
 // Схема и тестовые данные подставляются из последней версии: обычно их правят, а не пишут заново.
 watch(visible, (open) => {
   if (!open) return
   file.value = null
   if (fileInput.value) fileInput.value.value = ''
+  expected.value = props.expectedDraft
   schema.value = props.schema
   testData.value = props.testData
   error.value = ''
@@ -61,12 +63,14 @@ async function submit() {
 
   saving.value = true
   try {
-    await api.uploadVersion(props.templateId, file.value, schema.value, testData.value)
+    await api.uploadVersion(props.templateId, file.value, schema.value, testData.value, expected.value)
     ElMessage.success(props.hasDraft ? 'Черновик заменён' : 'Версия загружена')
     visible.value = false
     emit('uploaded')
   } catch (e) {
-    error.value = errorText(e)
+    error.value = e instanceof ApiError && e.code === 'draft_changed'
+      ? 'Черновик за это время изменил другой пользователь. Закройте окно и обновите страницу, чтобы увидеть его правки.'
+      : errorText(e)
     if (e instanceof ApiError) fieldErrors.value = e.fieldErrors
   } finally {
     saving.value = false

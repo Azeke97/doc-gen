@@ -175,11 +175,16 @@ export const api = {
   archive: (templateId: string) => call<Template>('POST', `/templates/${templateId}/archive`),
 
   versions: (templateId: string) => call<TemplateVersion[]>('GET', `/templates/${templateId}/versions`),
-  async uploadVersion(templateId: string, file: File, schema: string, testData: string) {
+  /**
+   * Загружает версию. expectedDraft — каким был черновик, когда начали правку: его updated_at
+   * или 'none', если черновика не было. Изменился с тех пор — ApiError с кодом draft_changed.
+   */
+  async uploadVersion(templateId: string, file: File, schema: string, testData: string, expectedDraft: string) {
     const form = new FormData()
     form.append('file', file)
     form.append('schema', schema)
     if (testData.trim()) form.append('test_data', testData)
+    form.append('expected_draft', expectedDraft)
     const res = await request('POST', `/templates/${templateId}/versions`, form, false)
     return (await res.json()) as TemplateVersion
   },
