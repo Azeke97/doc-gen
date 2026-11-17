@@ -108,8 +108,8 @@ func documentParams(f fixture, v db.TemplateVersion, key string) db.CreateDocume
 		PublicID:          NewPublicID(),
 		APIClientID:       f.client.ID,
 		Project:           f.client.Project,
-		TemplateID:        f.tmpl.ID,
-		TemplateVersionID: v.ID,
+		TemplateID:        &f.tmpl.ID,
+		TemplateVersionID: &v.ID,
 		Format:            "pdf",
 		FileKey:           "documents/test.pdf",
 		FileSha256:        sum[:],
@@ -179,7 +179,8 @@ func TestDocumentConstraints(t *testing.T) {
 			name: "version of another template",
 			fn: func(sp pgx.Tx) error {
 				p := documentParams(f, f.published, "key-3")
-				p.TemplateID = uuid.New()
+				other := uuid.New()
+				p.TemplateID = &other
 				_, err := db.New(sp).CreateDocument(ctx, p)
 				return err
 			},

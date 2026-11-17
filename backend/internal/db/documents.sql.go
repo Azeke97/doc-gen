@@ -20,15 +20,15 @@ INSERT INTO documents (
 ) VALUES (
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
          )
-RETURNING id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at
+RETURNING id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256
 `
 
 type CreateDocumentParams struct {
 	PublicID          string
 	APIClientID       uuid.UUID
 	Project           string
-	TemplateID        uuid.UUID
-	TemplateVersionID uuid.UUID
+	TemplateID        *uuid.UUID
+	TemplateVersionID *uuid.UUID
 	ExternalID        *string
 	RequestedBy       *string
 	Format            string
@@ -78,6 +78,8 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		&i.RequestSha256,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.TemplateName,
+		&i.TemplateSha256,
 	)
 	return i, err
 }
@@ -93,7 +95,7 @@ func (q *Queries) DeleteDocuments(ctx context.Context, ids []uuid.UUID) error {
 }
 
 const getDocumentByIdempotencyKey = `-- name: GetDocumentByIdempotencyKey :one
-SELECT id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at FROM documents
+SELECT id, public_id, api_client_id, project, template_id, template_version_id, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256 FROM documents
 WHERE api_client_id = $1 AND idempotency_key = $2
 `
 
@@ -123,6 +125,8 @@ func (q *Queries) GetDocumentByIdempotencyKey(ctx context.Context, arg GetDocume
 		&i.RequestSha256,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.TemplateName,
+		&i.TemplateSha256,
 	)
 	return i, err
 }
@@ -165,7 +169,7 @@ func (q *Queries) GetDocumentByPublicID(ctx context.Context, publicID string) (G
 }
 
 const getProjectDocument = `-- name: GetProjectDocument :one
-SELECT d.id, d.public_id, d.api_client_id, d.project, d.template_id, d.template_version_id, d.external_id, d.requested_by, d.format, d.file_key, d.file_sha256, d.file_size, d.data, d.idempotency_key, d.request_sha256, d.created_at, d.expires_at, t.code AS template_code, t.locale, v.version
+SELECT d.id, d.public_id, d.api_client_id, d.project, d.template_id, d.template_version_id, d.external_id, d.requested_by, d.format, d.file_key, d.file_sha256, d.file_size, d.data, d.idempotency_key, d.request_sha256, d.created_at, d.expires_at, d.template_name, d.template_sha256, t.code AS template_code, t.locale, v.version
 FROM documents d
          JOIN templates t ON t.id = d.template_id
          JOIN template_versions v ON v.id = d.template_version_id
@@ -206,6 +210,8 @@ func (q *Queries) GetProjectDocument(ctx context.Context, arg GetProjectDocument
 		&i.Document.RequestSha256,
 		&i.Document.CreatedAt,
 		&i.Document.ExpiresAt,
+		&i.Document.TemplateName,
+		&i.Document.TemplateSha256,
 		&i.TemplateCode,
 		&i.Locale,
 		&i.Version,

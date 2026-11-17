@@ -173,7 +173,7 @@ func TestGenerate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if !created || doc.TemplateVersionID != e.v1.ID || doc.Project != e.client.Project || doc.Format != "pdf" {
+	if !created || *doc.TemplateVersionID != e.v1.ID || doc.Project != e.client.Project || doc.Format != "pdf" {
 		t.Errorf("doc = %+v, created %v", doc, created)
 	}
 	if doc.ExternalID == nil || *doc.ExternalID != "lot-209092" {
@@ -218,14 +218,14 @@ func TestGeneratePinnedVersion(t *testing.T) {
 	v2 := e.publish(t, `{"type":"object","required":["number"],"properties":{"number":{"type":"string"},"sum":{"type":"number"}}}`)
 
 	active, _, err := e.documents.Generate(ctx, e.client, request("active"), "")
-	if err != nil || active.TemplateVersionID != v2.ID {
+	if err != nil || *active.TemplateVersionID != v2.ID {
 		t.Fatalf("active version: %v, %v; want v2", active.TemplateVersionID, err)
 	}
 
 	pinned := request("pinned")
 	pinned.Version = 1
 	doc, _, err := e.documents.Generate(ctx, e.client, pinned, "")
-	if err != nil || doc.TemplateVersionID != e.v1.ID {
+	if err != nil || *doc.TemplateVersionID != e.v1.ID {
 		t.Errorf("pinned v1: %v, %v; want v1", doc.TemplateVersionID, err)
 	}
 }

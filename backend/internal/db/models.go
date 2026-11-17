@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type APIClient struct {
@@ -54,8 +55,8 @@ type Document struct {
 	PublicID          string
 	APIClientID       uuid.UUID
 	Project           string
-	TemplateID        uuid.UUID
-	TemplateVersionID uuid.UUID
+	TemplateID        *uuid.UUID
+	TemplateVersionID *uuid.UUID
 	ExternalID        *string
 	RequestedBy       *string
 	Format            string
@@ -67,13 +68,38 @@ type Document struct {
 	RequestSha256     []byte
 	CreatedAt         time.Time
 	ExpiresAt         time.Time
+	TemplateName      *string
+	TemplateSha256    []byte
+}
+
+type GenerationLog struct {
+	ID             uuid.UUID
+	CreatedAt      time.Time
+	APIClientID    uuid.UUID
+	Project        string
+	RequestID      string
+	TemplateName   *string
+	TemplateSha256 []byte
+	Format         *string
+	ExternalID     *string
+	RequestedBy    *string
+	IdempotencyKey *string
+	Status         string
+	HttpStatus     int32
+	ErrorCode      *string
+	ErrorMessage   *string
+	ErrorDetails   json.RawMessage
+	DocumentID     *uuid.UUID
+	ResultSize     pgtype.Int8
+	DurationMs     int32
 }
 
 type Project struct {
-	Code      string
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Code          string
+	Name          string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	RetentionDays int32
 }
 
 type Template struct {
@@ -88,6 +114,13 @@ type Template struct {
 	ActiveVersionID *uuid.UUID
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+}
+
+type TemplateFile struct {
+	Sha256    []byte
+	FileKey   string
+	Size      int64
+	CreatedAt time.Time
 }
 
 type TemplateVersion struct {

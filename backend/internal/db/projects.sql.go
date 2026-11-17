@@ -12,7 +12,7 @@ import (
 const createProject = `-- name: CreateProject :one
 INSERT INTO projects (code, name)
 VALUES ($1, $2)
-RETURNING code, name, created_at, updated_at
+RETURNING code, name, created_at, updated_at, retention_days
 `
 
 type CreateProjectParams struct {
@@ -28,12 +28,13 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RetentionDays,
 	)
 	return i, err
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT code, name, created_at, updated_at FROM projects
+SELECT code, name, created_at, updated_at, retention_days FROM projects
 ORDER BY code
 `
 
@@ -51,6 +52,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RetentionDays,
 		); err != nil {
 			return nil, err
 		}
