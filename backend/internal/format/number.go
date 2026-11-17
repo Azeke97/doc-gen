@@ -17,7 +17,7 @@ const groupSep = "\u00a0"
 // maxDecimals — сколько знаков после точки показывает Number.
 const maxDecimals = 10
 
-var errNotNumber = errors.New("not a number")
+var errNotNumber = errors.New("не число")
 
 // Decimal переводит значение в точное десятичное число. ok = false для nil (поле не передано).
 // Строки допускаются: порталы часто передают суммы строкой, чтобы не терять копейки.
@@ -37,7 +37,7 @@ func Decimal(v any) (d *big.Rat, ok bool, err error) {
 	case float64:
 		s = strconv.FormatFloat(x, 'g', -1, 64)
 	default:
-		return nil, false, fmt.Errorf("%w: %T", errNotNumber, v)
+		return nil, false, fmt.Errorf("%w: получено %s", errNotNumber, kind(v))
 	}
 
 	d, ok = new(big.Rat).SetString(s)
@@ -82,7 +82,7 @@ func Compare(a, b any) (int, error) {
 		return 0, err
 	}
 	if !okA || !okB {
-		return 0, fmt.Errorf("%w: nil", errNotNumber)
+		return 0, fmt.Errorf("%w: пусто", errNotNumber)
 	}
 	return x.Cmp(y), nil
 }

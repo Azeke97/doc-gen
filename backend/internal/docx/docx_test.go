@@ -391,6 +391,7 @@ func TestDataErrors(t *testing.T) {
 		"customer.name": "нет в данных",
 		"date":          "нет в данных",
 		"lots[1].name":  "нет в данных",
+		"total":         `money: не число: "много"`,
 	}
 	got := make(map[string]string)
 	for _, f := range dErr.Fields {

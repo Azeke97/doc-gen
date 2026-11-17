@@ -13,7 +13,7 @@ func Check(v any) (string, error) {
 		}
 		return "☐", nil
 	}
-	return "", fmt.Errorf("check expects true or false, got %T", v)
+	return "", fmt.Errorf("ожидается true или false, получено %s", kind(v))
 }
 
 // Tr выбирает значение на нужном языке. Поле может быть строкой (одинаково на всех языках)

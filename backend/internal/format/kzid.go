@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var errNotKzID = errors.New("not a valid BIN/IIN")
+var errNotKzID = errors.New("неверный БИН/ИИН")
 
 // KzID нормализует БИН/ИИН: убирает пробелы и дефисы и проверяет контрольную цифру.
 // Число дополняется нулями слева: ИИН родившихся в 2000-х начинается с 0, и в JSON-числе
@@ -25,7 +25,7 @@ func KzID(v any) (string, error) {
 			s = strings.Repeat("0", 12-len(s)) + s
 		}
 	default:
-		return "", fmt.Errorf("%w: %T", errNotKzID, v)
+		return "", fmt.Errorf("%w: ожидается строка или число, получено %s", errNotKzID, kind(v))
 	}
 
 	if !ValidKzID(s) {

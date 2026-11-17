@@ -30,7 +30,7 @@ var inputLayouts = []struct {
 	{layout: "2006-01-02 15:04"},
 }
 
-var errNotDate = errors.New("not a date")
+var errNotDate = errors.New("не дата")
 
 var (
 	monthsRu = [12]string{"января", "февраля", "марта", "апреля", "мая", "июня",
@@ -49,7 +49,7 @@ func Time(v any) (t time.Time, ok bool, err error) {
 	case string:
 		s = x
 	default:
-		return time.Time{}, false, fmt.Errorf("%w: %T", errNotDate, v)
+		return time.Time{}, false, fmt.Errorf("%w: ожидается строка, получено %s", errNotDate, kind(v))
 	}
 	if s == "" {
 		return time.Time{}, false, nil
@@ -65,7 +65,7 @@ func Time(v any) (t time.Time, ok bool, err error) {
 		}
 		return t.In(Kazakhstan), true, nil
 	}
-	return time.Time{}, false, fmt.Errorf("%w: %q", errNotDate, s)
+	return time.Time{}, false, fmt.Errorf("%w: %q (нужно ГГГГ-ММ-ДД, ГГГГ-ММ-ДД ЧЧ:ММ[:СС] или RFC 3339)", errNotDate, s)
 }
 
 // Date — "20.10.2026". Второй аргумент — свой формат в нотации Go, например "2006-01-02".
@@ -92,12 +92,12 @@ func LongDate(v any, locale string) (string, error) {
 	case "kk":
 		return year + " жылғы " + day + " " + monthsKk[month], nil
 	}
-	return "", fmt.Errorf("unsupported locale %q: use ru or kk", locale)
+	return "", fmt.Errorf("язык %q не поддерживается: нужен ru или kk", locale)
 }
 
 func formatTime(v any, defaultLayout string, layout []string) (string, error) {
 	if len(layout) > 1 {
-		return "", errors.New("expected at most one layout")
+		return "", errors.New("можно указать только один формат даты")
 	}
 	t, ok, err := Time(v)
 	if err != nil || !ok {

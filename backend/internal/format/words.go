@@ -13,7 +13,7 @@ import (
 // maxWords — числа до триллионов включительно (меньше 10^15).
 var maxWords = new(big.Int).Exp(big.NewInt(10), big.NewInt(15), nil)
 
-var errNotInteger = errors.New("not an integer")
+var errNotInteger = errors.New("не целое число")
 
 // Words — целое число словами: "шесть миллионов" (ru), "алты миллион" (kk).
 func Words(v any, locale string) (string, error) {
@@ -65,7 +65,7 @@ func CapFirst(s string) string {
 func intWords(n *big.Int, locale string) (string, error) {
 	abs := new(big.Int).Abs(n)
 	if abs.Cmp(maxWords) >= 0 {
-		return "", fmt.Errorf("number %s is too large for words", n)
+		return "", fmt.Errorf("число %s слишком большое для записи прописью", n)
 	}
 
 	var words func(uint64) string
@@ -75,7 +75,7 @@ func intWords(n *big.Int, locale string) (string, error) {
 	case "kk":
 		words = wordsKk
 	default:
-		return "", fmt.Errorf("unsupported locale %q: use ru or kk", locale)
+		return "", fmt.Errorf("язык %q не поддерживается: нужен ru или kk", locale)
 	}
 
 	s := words(abs.Uint64())
