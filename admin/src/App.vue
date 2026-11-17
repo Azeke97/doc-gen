@@ -9,9 +9,10 @@ const router = useRouter()
 
 const section = computed(() => '/' + (route.path.split('/')[1] ?? ''))
 
+// Сначала уходим на страницу входа: иначе текущая страница успеет запросить данные без сессии.
 async function onLogout() {
-  await logout()
   await router.push('/login')
+  await logout()
 }
 </script>
 

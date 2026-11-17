@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { type LocationQuery, useRoute, useRouter } from 'vue-router'
 
 import { api, type JournalEntry, type JournalFilter, type JournalStatus, type Project } from '../api'
 import { errorLabels, errorText, formatDateTime, statusLabels } from '../labels'
@@ -16,13 +16,14 @@ const loading = ref(false)
 
 // Фильтры живут в адресе: ссылку на выборку можно отправить коллеге.
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
-const filter = reactive({
-  project: str(route.query.project),
-  template_name: str(route.query.template_name),
-  external_id: str(route.query.external_id),
-  status: ([] as JournalStatus[]).concat((route.query.status ?? []) as JournalStatus[]),
-  period: (route.query.from && route.query.to ? [str(route.query.from), str(route.query.to)] : []) as string[],
+const fromQuery = (q: LocationQuery) => ({
+  project: str(q.project),
+  template_name: str(q.template_name),
+  external_id: str(q.external_id),
+  status: ([] as JournalStatus[]).concat((q.status ?? []) as JournalStatus[]),
+  period: (q.from && q.to ? [str(q.from), str(q.to)] : []) as string[],
 })
+const filter = reactive(fromQuery(route.query))
 
 const request = computed<JournalFilter>(() => ({
   project: filter.project || undefined,
@@ -49,17 +50,30 @@ async function load(more = false) {
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined
+let written = JSON.stringify(route.query)
 watch(
   request,
   (r) => {
     // Текстовые поля — с небольшой задержкой, чтобы не запрашивать на каждую букву.
     clearTimeout(timer)
     timer = setTimeout(() => {
-      void router.replace({ query: { ...r, status: r.status } as Record<string, string | string[] | undefined> })
+      const query = Object.fromEntries(Object.entries(r).filter(([, v]) => v !== undefined))
+      written = JSON.stringify(query)
+      void router.replace({ query })
       void load()
     }, 300)
   },
   { deep: true },
+)
+
+// Адрес сменился без перемонтирования страницы («Назад», правка адреса): фильтры берутся из него.
+watch(
+  () => route.query,
+  (q) => {
+    if (route.path !== '/journal' || JSON.stringify(q) === written) return
+    written = JSON.stringify(q)
+    Object.assign(filter, fromQuery(q))
+  },
 )
 
 function reset() {
