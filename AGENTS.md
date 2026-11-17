@@ -1,6 +1,8 @@
 # DocGen — agent context
 
-DocGen is a standalone service shared by the company's portals: given a template and JSON data it produces a document (DOCX/PDF) and stores it. Portals call it over REST with a per-portal API key; admins manage templates through the admin API.
+DocGen is a standalone service shared by the company's portals: given a template and JSON data it produces a document (DOCX/PDF) and stores it.
+
+**Spec redaction 2 is approved** (`docs/ТЗ DocGen ред. 2.docx`): a DOCX template with `{{ }}` marks arrives in every request together with JSON data; the service returns DOCX or PDF (LibreOffice in Gotenberg), stores the result with a retention period and logs every request; the admin is read-only (journal, reports). No template registry, HTML templates, editors, signatures or QR. The code is being refactored to it in stages; the sections below still describe the redaction-1 code where it has not been replaced yet. Portals call it over REST with a per-portal API key; admins manage templates through the admin API.
 
 ## Stack
 
@@ -33,6 +35,7 @@ DocGen is a standalone service shared by the company's portals: given a template
 - `internal/templates` — template registry service: every change runs in a transaction and writes `audit_log`.
 - `internal/documents` — document generation (`Service.Generate`) and storage; depends on `templates` for `Resolve`/`LoadFile`.
 - `internal/dataschema` — JSON Schema compile/validate, per-field errors, schema diff.
+- `internal/docx` — the DOCX engine of redaction 2 (beevik/etree): `Parse` checks the archive (size, zip-bomb limit, no macros/.docm/.dotx), glues tags Word split across runs and moves each tag into its own run, builds blocks; `Template.Render(data)` copies the XML and expands it without touching the template (safe to reuse and run concurrently); `Variables()` lists fields for `/templates/check`. Syntax: `{{ a.b | money }}`, filters `money number date datetime longdate:ru|kk words:ru|kk moneywords:ru|kk iin bin check upper lower capfirst default:text`, `{{#each x}}…{{else}}…{{/each}}`, `{{#if x}}…{{else}}…{{/if}}`, `{{../x}}`, `{{@number}}`, `{{@index}}`, `{{this}}`. A block's mode comes from where its tags are: same paragraph → part of the paragraph; different cells → table rows (from the opening row to the closing row; `{{else}}` starts the "empty" rows); otherwise whole paragraphs, and each tag must then be alone in its paragraph. Every field used in the rendered branches must exist in the data (`null` is allowed, `default:` makes it optional); errors are collected — `*TemplateError` (problems with part and paragraph text) and `*DataError` (fields like `lots[2].name`), messages in Russian. Data values are never parsed as tags. Output zip has fixed timestamps, so the same input gives the same bytes.
 - `internal/htmlengine` — html/template rendering of JSON data, template functions (`funcs.go`), footer and watermark.
 - `internal/format` — engine-independent formatting of JSON values (money, numbers, dates, amounts in words, BIN/IIN, checkboxes, per-locale values); exact decimals via `math/big`. `format.ValidKzID` is the single BIN/IIN checksum, also used by the `kz-iin`/`kz-bin` schema formats.
 - `internal/gotenberg` — HTML → PDF client.
