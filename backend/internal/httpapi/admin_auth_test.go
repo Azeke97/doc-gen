@@ -74,6 +74,7 @@ type adminTestServer struct {
 	t        *testing.T
 	auth     *fakeAdminAuthStore
 	projects *fakeProjectStore
+	journal  *fakeJournalReader
 	router   http.Handler
 }
 
@@ -84,11 +85,13 @@ func newAdminTestServer(t *testing.T) *adminTestServer {
 		t:        t,
 		auth:     newFakeAdminAuthStore(t, "admin@example.com", "secret-password"),
 		projects: &fakeProjectStore{projects: map[string]db.Project{}},
+		journal:  &fakeJournalReader{},
 	}
 	s.router = NewRouter(Deps{
 		AdminAuth:       s.auth,
 		AdminSessionTTL: time.Hour,
 		Projects:        s.projects,
+		JournalReader:   s.journal,
 	})
 
 	return s

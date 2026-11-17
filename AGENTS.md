@@ -4,7 +4,7 @@ DocGen is a standalone service shared by the company's portals: a portal sends a
 
 Spec: `docs/ТЗ DocGen ред. 2.docx` (redaction 2, approved). The user edits it in `~/Загрузки/ТЗ DocGen ред. 2.docx`; when they say it changed, copy it into `docs/` and commit. Out of scope by the spec: a template registry, HTML templates, template editors, signatures, QR/verification pages, workflow.
 
-The refactor from redaction 1 is in progress: stages 1–5 are done (DOCX engine, LibreOffice conversion, schema, new portal API, removal of the registry/HTML/QR code). Still to do: admin API (journal with filters, request card, reports, `ADMIN_DEMO_LOGIN`), admin UI screens for them, API key commands (list, revoke), DOCX golden tests.
+The refactor from redaction 1 is in progress: stages 1–6 are done (DOCX engine, LibreOffice conversion, schema, new portal API, removal of the registry/HTML/QR code, admin API for the journal and reports). Still to do: admin UI screens for the journal and reports, API key commands (list, revoke), DOCX golden tests.
 
 ## Stack
 
@@ -18,7 +18,7 @@ The refactor from redaction 1 is in progress: stages 1–5 are done (DOCX engine
 - `make up` / `make down` — start/stop Postgres, MinIO, Gotenberg.
 - `make run`, `make migrate-up`, `make migration name=...`, `make generate` (sqlc).
 - `make keygen name=... project=...` — issue a portal API key (printed once).
-- `make admin-add email=... name=...` — create an admin (password printed once).
+- `make admin-add email=... name=...` — create an admin (password printed once). `make admin-demo` — create or refresh the beta-test account from `ADMIN_DEMO_EMAIL`/`ADMIN_DEMO_PASSWORD` (refuses unless `ADMIN_DEMO_LOGIN=true`). `make admin-disable email=...` — block an admin and close their sessions (after the beta).
 - `make admin-install` / `make admin-dev` (Vite on :5173, proxies `/admin/v1` to `make run` on :8080) / `make admin-build` (→ `admin/dist`).
 - `make check` — lint + unit tests; `make test-integration` — tests against real Postgres/MinIO/Gotenberg (needs `make up` and the dev DB at the latest migration).
 
@@ -41,7 +41,12 @@ The refactor from redaction 1 is in progress: stages 1–5 are done (DOCX engine
   - `POST /templates/check` (multipart `template`) → `{valid, variables}` or `422 invalid_template`.
   - `GET /documents/{id}` (metadata), `GET /documents/{id}/file` (checked against its SHA-256). Another project's document is `404`, an expired one is `410`.
   - `GET /whoami` — which portal the key belongs to.
-- Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`): `POST /logout`, `GET /me`, `GET|POST /projects`.
+- Admin (`/admin/v1`, `Authorization: Bearer dgs_...` after `POST /login`; read-only except projects):
+  - `GET /login-info` (no session) → `{demo_login: {email, password} | null}`; the account is shown only when `ADMIN_DEMO_LOGIN=true` (test stand with test data only; startup fails if email or a ≥12-char password is missing, and logs a warning).
+  - `POST /logout`, `GET /me`, `GET|POST /projects` (`retention_days`, default 365), `PATCH /projects/{code}` (`name`, `retention_days` — affects documents issued afterwards).
+  - `GET /journal` — filters `project`, `template_name`, `external_id`, `status` (repeatable), `from`/`to` (a date is an Astana day, `to` inclusive; or RFC 3339), `limit` ≤200; keyset pages by `(created_at, id)` with an opaque `cursor`/`next_cursor`.
+  - `GET /journal/{id}` — the entry plus `document_state`: `available` (input data included), `expired` (data hidden), `deleted` (removed by retention), `null` (no document).
+  - `GET /reports?from=&to=&project=` — totals by status, average generation time of new documents, by project, by template (≤200 rows), by Astana day; default period: the last 30 days including today.
 - Errors: `{"error": {"code", "message", "details?"}}`. Codes: `invalid_form` (400: not multipart, unknown or repeated field), `invalid_<field>` (400), `invalid_data` (400, `details` = `docx.FieldError`s), `invalid_template` (422, `details` = `docx.Problem`s), `idempotency_conflict` (409), `conversion_failed` (422), `converter_unavailable` (503), `request_too_large` (413), `internal` (500).
 
 ## Templates (`internal/docx`)

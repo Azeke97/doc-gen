@@ -10,18 +10,19 @@ import (
 )
 
 const createProject = `-- name: CreateProject :one
-INSERT INTO projects (code, name)
-VALUES ($1, $2)
+INSERT INTO projects (code, name, retention_days)
+VALUES ($1, $2, COALESCE($3::integer, 365))
 RETURNING code, name, created_at, updated_at, retention_days
 `
 
 type CreateProjectParams struct {
-	Code string
-	Name string
+	Code          string
+	Name          string
+	RetentionDays *int32
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
-	row := q.db.QueryRow(ctx, createProject, arg.Code, arg.Name)
+	row := q.db.QueryRow(ctx, createProject, arg.Code, arg.Name, arg.RetentionDays)
 	var i Project
 	err := row.Scan(
 		&i.Code,
@@ -62,4 +63,32 @@ func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateProject = `-- name: UpdateProject :one
+UPDATE projects
+SET name           = COALESCE($1, name),
+    retention_days = COALESCE($2::integer, retention_days)
+WHERE code = $3
+RETURNING code, name, created_at, updated_at, retention_days
+`
+
+type UpdateProjectParams struct {
+	Name          *string
+	RetentionDays *int32
+	Code          string
+}
+
+// Пустые поля не меняются.
+func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error) {
+	row := q.db.QueryRow(ctx, updateProject, arg.Name, arg.RetentionDays, arg.Code)
+	var i Project
+	err := row.Scan(
+		&i.Code,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RetentionDays,
+	)
+	return i, err
 }

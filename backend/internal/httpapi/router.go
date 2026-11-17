@@ -18,6 +18,9 @@ type Deps struct {
 	Projects        ProjectStore
 	Documents       DocumentService
 	Journal         JournalStore
+	JournalReader   JournalReader
+	// DemoLogin — тестовая учётная запись для страницы входа; nil — не показывать.
+	DemoLogin *DemoLogin
 	// AdminUI — собранная админка; nil — сервис её не раздаёт.
 	AdminUI http.Handler
 }
@@ -48,6 +51,7 @@ func NewRouter(deps Deps) http.Handler {
 
 	r.Route("/admin/v1", func(r chi.Router) {
 		r.Post("/login", loginHandler(deps.AdminAuth, deps.AdminSessionTTL))
+		r.Get("/login-info", loginInfoHandler(deps.DemoLogin))
 
 		r.Group(func(r chi.Router) {
 			r.Use(requireAdmin(deps.AdminAuth))
@@ -57,6 +61,10 @@ func NewRouter(deps Deps) http.Handler {
 
 			r.Post("/projects", createProjectHandler(deps.Projects))
 			r.Get("/projects", listProjectsHandler(deps.Projects))
+			r.Patch("/projects/{code}", updateProjectHandler(deps.Projects))
+			r.Get("/journal", journalHandler(deps.JournalReader))
+			r.Get("/journal/{id}", journalEntryHandler(deps.JournalReader))
+			r.Get("/reports", reportsHandler(deps.JournalReader))
 		})
 	})
 

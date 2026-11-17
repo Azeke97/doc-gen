@@ -89,6 +89,12 @@ func main() {
 		go documentService.RunCleanup(ctx, cfg.Documents.CleanupInterval, cfg.Documents.CleanupBatch)
 	}
 
+	var demo *httpapi.DemoLogin
+	if cfg.Admin.DemoLogin {
+		demo = &httpapi.DemoLogin{Email: cfg.Admin.DemoEmail, Password: cfg.Admin.DemoPassword}
+		slog.Warn("demo admin login is shown on the login page: use only on a test stand with test data", "email", demo.Email)
+	}
+
 	var adminUI http.Handler
 	if cfg.Admin.UIDir != "" {
 		adminUI = httpapi.AdminUI(cfg.Admin.UIDir)
@@ -105,6 +111,8 @@ func main() {
 			Projects:        queries,
 			Documents:       documentService,
 			Journal:         queries,
+			JournalReader:   queries,
+			DemoLogin:       demo,
 			AdminUI:         adminUI,
 		}),
 		ReadTimeout:       cfg.HTTP.ReadTimeout,

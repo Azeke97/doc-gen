@@ -338,6 +338,12 @@ paths:
                 name:
                   type: string
                   example: Закупки
+                retention_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 36500
+                  default: 365
+                  description: Срок хранения документов проекта — предел для retention_days в запросах
       responses:
         "201":
           description: Проект создан
@@ -355,6 +361,202 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /admin/v1/projects/{code}:
+    patch:
+      summary: Изменить имя или срок хранения проекта
+      description: Новый срок действует для документов, выпущенных после изменения.
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                retention_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 36500
+      responses:
+        "200":
+          description: Проект изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Проекта нет
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/v1/login-info:
+    get:
+      summary: Что показать на странице входа
+      description: |
+        demo_login — тестовая учётная запись бета-теста; есть только на тестовом стенде
+        с ADMIN_DEMO_LOGIN=true, иначе null.
+      tags: [admin]
+      security: []
+      responses:
+        "200":
+          description: Сведения для страницы входа
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [demo_login]
+                properties:
+                  demo_login:
+                    oneOf:
+                      - type: "null"
+                      - type: object
+                        required: [email, password]
+                        properties:
+                          email:
+                            type: string
+                          password:
+                            type: string
+
+  /admin/v1/journal:
+    get:
+      summary: Журнал запросов на генерацию
+      description: |
+        Новые первыми, страницами. Следующая страница — с cursor из next_cursor предыдущей
+        (null — страниц больше нет). Период: дата (день по Астане; to включает весь день) или RFC 3339.
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - {name: project, in: query, schema: {type: string}}
+        - {name: template_name, in: query, schema: {type: string}}
+        - {name: external_id, in: query, schema: {type: string}}
+        - name: status
+          in: query
+          description: Можно несколько раз
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [created, repeated, rejected, failed]
+        - {name: from, in: query, schema: {type: string, example: "2026-11-01"}}
+        - {name: to, in: query, schema: {type: string, example: "2026-11-17"}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+        - {name: cursor, in: query, schema: {type: string}}
+      responses:
+        "200":
+          description: Страница журнала
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/JournalEntry"
+                  next_cursor:
+                    type: [string, "null"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/v1/journal/{id}:
+    get:
+      summary: Карточка запроса
+      description: |
+        document_state: available — документ хранится (в document.data входные данные),
+        expired — срок истёк (данных уже нет), deleted — удалён по сроку хранения,
+        null — документа не было (запрос отклонён или сбой).
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Запись журнала и документ
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entry, document_state, document]
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/JournalEntry"
+                  document_state:
+                    type: [string, "null"]
+                    enum: [available, expired, deleted, null]
+                  document:
+                    oneOf:
+                      - type: "null"
+                      - type: object
+                        required: [id, format, file_size, file_sha256, created_at, expires_at, expired, data]
+                        properties:
+                          id: {type: string, format: uuid}
+                          format: {type: string, enum: [pdf, docx]}
+                          file_size: {type: integer}
+                          file_sha256: {type: string}
+                          created_at: {type: string, format: date-time}
+                          expires_at: {type: string, format: date-time}
+                          expired: {type: boolean}
+                          data:
+                            description: Входные данные; null, если срок хранения истёк
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Записи нет
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/v1/reports:
+    get:
+      summary: Отчёт за период
+      description: Без периода — последние 30 дней по Астане, включая сегодня.
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - {name: project, in: query, schema: {type: string}}
+        - {name: from, in: query, schema: {type: string, example: "2026-11-01"}}
+        - {name: to, in: query, schema: {type: string, example: "2026-11-17"}}
+      responses:
+        "200":
+          description: Отчёт
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 security:
   - ApiKeyAuth: []
@@ -386,15 +588,90 @@ components:
 
     Project:
       type: object
-      required: [code, name, created_at]
+      required: [code, name, retention_days, created_at]
       properties:
         code:
           type: string
         name:
           type: string
+        retention_days:
+          type: integer
         created_at:
           type: string
           format: date-time
+
+    JournalEntry:
+      type: object
+      required: [id, created_at, project, project_name, request_id, status, http_status, duration_ms]
+      properties:
+        id: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        project: {type: string}
+        project_name: {type: string}
+        request_id: {type: string, description: "X-Request-Id: связывает с логами сервиса и Gotenberg"}
+        template_name: {type: [string, "null"]}
+        template_sha256: {type: [string, "null"]}
+        format: {type: [string, "null"]}
+        external_id: {type: [string, "null"]}
+        requested_by: {type: [string, "null"]}
+        idempotency_key: {type: [string, "null"]}
+        status:
+          type: string
+          enum: [created, repeated, rejected, failed]
+        http_status: {type: integer}
+        error_code: {type: [string, "null"]}
+        error_message: {type: [string, "null"]}
+        error_details:
+          description: FieldError (invalid_data) или TemplateProblem (invalid_template), null без ошибки
+        document_id:
+          type: [string, "null"]
+          format: uuid
+          description: null у отклонённых запросов и после удаления документа по сроку
+        result_size: {type: [integer, "null"]}
+        duration_ms: {type: integer}
+
+    Report:
+      type: object
+      required: [from, to, totals, by_project, by_template, by_day]
+      properties:
+        from: {type: string, format: date-time}
+        to: {type: string, format: date-time, description: Не включая}
+        totals:
+          type: object
+          properties:
+            requests: {type: integer}
+            created: {type: integer}
+            repeated: {type: integer}
+            rejected: {type: integer}
+            failed: {type: integer}
+            avg_duration_ms: {type: integer, description: Среднее время выпуска нового документа}
+        by_project:
+          type: array
+          items:
+            type: object
+            properties:
+              project: {type: string}
+              project_name: {type: string}
+              created: {type: integer}
+              errors: {type: integer}
+        by_template:
+          type: array
+          items:
+            type: object
+            properties:
+              project: {type: string}
+              template_name: {type: string, description: Пусто у запросов, отклонённых до разбора полей}
+              created: {type: integer}
+              errors: {type: integer}
+              avg_duration_ms: {type: integer}
+        by_day:
+          type: array
+          items:
+            type: object
+            properties:
+              day: {type: string, format: date, description: День по Астане}
+              created: {type: integer}
+              errors: {type: integer}
 
     FieldError:
       type: object

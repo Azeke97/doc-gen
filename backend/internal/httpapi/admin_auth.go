@@ -93,6 +93,21 @@ func loginHandler(store AdminAuthStore, sessionTTL time.Duration) http.HandlerFu
 	}
 }
 
+// DemoLogin — тестовая учётная запись, которую показывает страница входа (бета-тест).
+type DemoLogin struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// loginInfoHandler — GET /admin/v1/login-info, без входа: что показать на странице входа.
+// demo_login есть только на тестовом стенде с ADMIN_DEMO_LOGIN=true.
+func loginInfoHandler(demo *DemoLogin) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, r, http.StatusOK, map[string]*DemoLogin{"demo_login": demo})
+	}
+}
+
 func logoutHandler(store AdminAuthStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, _ := bearerToken(r)

@@ -74,6 +74,31 @@ func (q *Queries) DeleteAdminSession(ctx context.Context, tokenHash []byte) erro
 	return err
 }
 
+const deleteAdminUserSessions = `-- name: DeleteAdminUserSessions :exec
+DELETE FROM admin_sessions
+WHERE user_id = $1
+`
+
+func (q *Queries) DeleteAdminUserSessions(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAdminUserSessions, userID)
+	return err
+}
+
+const disableAdminUser = `-- name: DisableAdminUser :one
+UPDATE admin_users
+SET disabled_at = now()
+WHERE email = $1 AND disabled_at IS NULL
+RETURNING id
+`
+
+// Блокировка: входить больше нельзя, открытые сессии закрываются отдельным запросом.
+func (q *Queries) DisableAdminUser(ctx context.Context, email string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, disableAdminUser, email)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getActiveAdminUserByEmail = `-- name: GetActiveAdminUserByEmail :one
 SELECT id, email, name, password_hash, disabled_at, created_at, updated_at FROM admin_users
 WHERE email = $1 AND disabled_at IS NULL
@@ -113,5 +138,35 @@ func (q *Queries) GetAdminBySessionToken(ctx context.Context, tokenHash []byte) 
 	row := q.db.QueryRow(ctx, getAdminBySessionToken, tokenHash)
 	var i GetAdminBySessionTokenRow
 	err := row.Scan(&i.ID, &i.Email, &i.Name)
+	return i, err
+}
+
+const upsertAdminUser = `-- name: UpsertAdminUser :one
+INSERT INTO admin_users (email, name, password_hash)
+VALUES ($1, $2, $3)
+ON CONFLICT (email) DO UPDATE
+    SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, disabled_at = NULL
+RETURNING id, email, name, password_hash, disabled_at, created_at, updated_at
+`
+
+type UpsertAdminUserParams struct {
+	Email        string
+	Name         string
+	PasswordHash string
+}
+
+// Тестовая учётная запись бета-теста: создаётся или получает пароль из настроек заново.
+func (q *Queries) UpsertAdminUser(ctx context.Context, arg UpsertAdminUserParams) (AdminUser, error) {
+	row := q.db.QueryRow(ctx, upsertAdminUser, arg.Email, arg.Name, arg.PasswordHash)
+	var i AdminUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.DisabledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }

@@ -8,8 +8,10 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createGenerationLog = `-- name: CreateGenerationLog :exec
@@ -74,6 +76,76 @@ func (q *Queries) DeleteTemplateFiles(ctx context.Context, shas [][]byte) error 
 	return err
 }
 
+const getDocument = `-- name: GetDocument :one
+SELECT id, public_id, api_client_id, project, external_id, requested_by, format, file_key, file_sha256, file_size, data, idempotency_key, request_sha256, created_at, expires_at, template_name, template_sha256 FROM documents
+WHERE id = $1
+`
+
+func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (Document, error) {
+	row := q.db.QueryRow(ctx, getDocument, id)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.APIClientID,
+		&i.Project,
+		&i.ExternalID,
+		&i.RequestedBy,
+		&i.Format,
+		&i.FileKey,
+		&i.FileSha256,
+		&i.FileSize,
+		&i.Data,
+		&i.IdempotencyKey,
+		&i.RequestSha256,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.TemplateName,
+		&i.TemplateSha256,
+	)
+	return i, err
+}
+
+const getGenerationLog = `-- name: GetGenerationLog :one
+SELECT g.id, g.created_at, g.api_client_id, g.project, g.request_id, g.template_name, g.template_sha256, g.format, g.external_id, g.requested_by, g.idempotency_key, g.status, g.http_status, g.error_code, g.error_message, g.error_details, g.document_id, g.result_size, g.duration_ms, p.name AS project_name
+FROM generation_log g
+         JOIN projects p ON p.code = g.project
+WHERE g.id = $1
+`
+
+type GetGenerationLogRow struct {
+	GenerationLog GenerationLog
+	ProjectName   string
+}
+
+func (q *Queries) GetGenerationLog(ctx context.Context, id uuid.UUID) (GetGenerationLogRow, error) {
+	row := q.db.QueryRow(ctx, getGenerationLog, id)
+	var i GetGenerationLogRow
+	err := row.Scan(
+		&i.GenerationLog.ID,
+		&i.GenerationLog.CreatedAt,
+		&i.GenerationLog.APIClientID,
+		&i.GenerationLog.Project,
+		&i.GenerationLog.RequestID,
+		&i.GenerationLog.TemplateName,
+		&i.GenerationLog.TemplateSha256,
+		&i.GenerationLog.Format,
+		&i.GenerationLog.ExternalID,
+		&i.GenerationLog.RequestedBy,
+		&i.GenerationLog.IdempotencyKey,
+		&i.GenerationLog.Status,
+		&i.GenerationLog.HTTPStatus,
+		&i.GenerationLog.ErrorCode,
+		&i.GenerationLog.ErrorMessage,
+		&i.GenerationLog.ErrorDetails,
+		&i.GenerationLog.DocumentID,
+		&i.GenerationLog.ResultSize,
+		&i.GenerationLog.DurationMs,
+		&i.ProjectName,
+	)
+	return i, err
+}
+
 const getProjectRetention = `-- name: GetProjectRetention :one
 SELECT retention_days FROM projects
 WHERE code = $1
@@ -101,6 +173,92 @@ func (q *Queries) GetTemplateFile(ctx context.Context, sha256 []byte) (TemplateF
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listGenerationLog = `-- name: ListGenerationLog :many
+SELECT g.id, g.created_at, g.api_client_id, g.project, g.request_id, g.template_name, g.template_sha256, g.format, g.external_id, g.requested_by, g.idempotency_key, g.status, g.http_status, g.error_code, g.error_message, g.error_details, g.document_id, g.result_size, g.duration_ms, p.name AS project_name
+FROM generation_log g
+         JOIN projects p ON p.code = g.project
+WHERE ($1::text IS NULL OR g.project = $1)
+  AND ($2::text IS NULL OR g.template_name = $2)
+  AND ($3::text IS NULL OR g.external_id = $3)
+  AND (cardinality($4::text[]) = 0 OR g.status = ANY ($4::text[]))
+  AND ($5::timestamptz IS NULL OR g.created_at >= $5)
+  AND ($6::timestamptz IS NULL OR g.created_at < $6)
+  AND ($7::timestamptz IS NULL
+    OR (g.created_at, g.id) < ($7::timestamptz, $8::uuid))
+ORDER BY g.created_at DESC, g.id DESC
+LIMIT $9
+`
+
+type ListGenerationLogParams struct {
+	Project      *string
+	TemplateName *string
+	ExternalID   *string
+	Statuses     []string
+	FromTime     *time.Time
+	ToTime       *time.Time
+	AfterTime    *time.Time
+	AfterID      *uuid.UUID
+	PageSize     int32
+}
+
+type ListGenerationLogRow struct {
+	GenerationLog GenerationLog
+	ProjectName   string
+}
+
+// Журнал для админки: фильтры необязательны; страницы — по (created_at, id) убыванию:
+// следующая страница начинается после последней записи предыдущей.
+func (q *Queries) ListGenerationLog(ctx context.Context, arg ListGenerationLogParams) ([]ListGenerationLogRow, error) {
+	rows, err := q.db.Query(ctx, listGenerationLog,
+		arg.Project,
+		arg.TemplateName,
+		arg.ExternalID,
+		arg.Statuses,
+		arg.FromTime,
+		arg.ToTime,
+		arg.AfterTime,
+		arg.AfterID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGenerationLogRow
+	for rows.Next() {
+		var i ListGenerationLogRow
+		if err := rows.Scan(
+			&i.GenerationLog.ID,
+			&i.GenerationLog.CreatedAt,
+			&i.GenerationLog.APIClientID,
+			&i.GenerationLog.Project,
+			&i.GenerationLog.RequestID,
+			&i.GenerationLog.TemplateName,
+			&i.GenerationLog.TemplateSha256,
+			&i.GenerationLog.Format,
+			&i.GenerationLog.ExternalID,
+			&i.GenerationLog.RequestedBy,
+			&i.GenerationLog.IdempotencyKey,
+			&i.GenerationLog.Status,
+			&i.GenerationLog.HTTPStatus,
+			&i.GenerationLog.ErrorCode,
+			&i.GenerationLog.ErrorMessage,
+			&i.GenerationLog.ErrorDetails,
+			&i.GenerationLog.DocumentID,
+			&i.GenerationLog.ResultSize,
+			&i.GenerationLog.DurationMs,
+			&i.ProjectName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const lockOrphanTemplateFiles = `-- name: LockOrphanTemplateFiles :many
@@ -155,4 +313,196 @@ type LockTemplateFileParams struct {
 func (q *Queries) LockTemplateFile(ctx context.Context, arg LockTemplateFileParams) error {
 	_, err := q.db.Exec(ctx, lockTemplateFile, arg.Sha256, arg.FileKey, arg.Size)
 	return err
+}
+
+const reportByDay = `-- name: ReportByDay :many
+SELECT (g.created_at AT TIME ZONE 'Asia/Almaty')::date             AS day,
+       count(*) FILTER (WHERE g.status = 'created')                AS created,
+       count(*) FILTER (WHERE g.status IN ('rejected', 'failed'))   AS errors
+FROM generation_log g
+WHERE g.created_at >= $1 AND g.created_at < $2
+  AND ($3::text IS NULL OR g.project = $3)
+GROUP BY day
+ORDER BY day
+`
+
+type ReportByDayParams struct {
+	FromTime time.Time
+	ToTime   time.Time
+	Project  *string
+}
+
+type ReportByDayRow struct {
+	Day     pgtype.Date
+	Created int64
+	Errors  int64
+}
+
+// Дни — по времени Астаны, как в документах.
+func (q *Queries) ReportByDay(ctx context.Context, arg ReportByDayParams) ([]ReportByDayRow, error) {
+	rows, err := q.db.Query(ctx, reportByDay, arg.FromTime, arg.ToTime, arg.Project)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReportByDayRow
+	for rows.Next() {
+		var i ReportByDayRow
+		if err := rows.Scan(&i.Day, &i.Created, &i.Errors); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reportByProject = `-- name: ReportByProject :many
+SELECT g.project,
+       p.name                                                   AS project_name,
+       count(*) FILTER (WHERE g.status = 'created')             AS created,
+       count(*) FILTER (WHERE g.status IN ('rejected', 'failed')) AS errors
+FROM generation_log g
+         JOIN projects p ON p.code = g.project
+WHERE g.created_at >= $1 AND g.created_at < $2
+  AND ($3::text IS NULL OR g.project = $3)
+GROUP BY g.project, p.name
+ORDER BY created DESC, g.project
+`
+
+type ReportByProjectParams struct {
+	FromTime time.Time
+	ToTime   time.Time
+	Project  *string
+}
+
+type ReportByProjectRow struct {
+	Project     string
+	ProjectName string
+	Created     int64
+	Errors      int64
+}
+
+func (q *Queries) ReportByProject(ctx context.Context, arg ReportByProjectParams) ([]ReportByProjectRow, error) {
+	rows, err := q.db.Query(ctx, reportByProject, arg.FromTime, arg.ToTime, arg.Project)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReportByProjectRow
+	for rows.Next() {
+		var i ReportByProjectRow
+		if err := rows.Scan(
+			&i.Project,
+			&i.ProjectName,
+			&i.Created,
+			&i.Errors,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reportByTemplate = `-- name: ReportByTemplate :many
+SELECT g.project,
+       COALESCE(g.template_name, '')::text                         AS template_name,
+       count(*) FILTER (WHERE g.status = 'created')                AS created,
+       count(*) FILTER (WHERE g.status IN ('rejected', 'failed'))   AS errors,
+       COALESCE(avg(g.duration_ms) FILTER (WHERE g.status = 'created'), 0)::integer AS avg_duration_ms
+FROM generation_log g
+WHERE g.created_at >= $1 AND g.created_at < $2
+  AND ($3::text IS NULL OR g.project = $3)
+GROUP BY g.project, g.template_name
+ORDER BY created DESC, g.project, template_name
+LIMIT 200
+`
+
+type ReportByTemplateParams struct {
+	FromTime time.Time
+	ToTime   time.Time
+	Project  *string
+}
+
+type ReportByTemplateRow struct {
+	Project       string
+	TemplateName  string
+	Created       int64
+	Errors        int64
+	AvgDurationMs int32
+}
+
+// Запросы, отклонённые до разбора полей, могут быть без имени шаблона — они в строке с пустым именем.
+func (q *Queries) ReportByTemplate(ctx context.Context, arg ReportByTemplateParams) ([]ReportByTemplateRow, error) {
+	rows, err := q.db.Query(ctx, reportByTemplate, arg.FromTime, arg.ToTime, arg.Project)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReportByTemplateRow
+	for rows.Next() {
+		var i ReportByTemplateRow
+		if err := rows.Scan(
+			&i.Project,
+			&i.TemplateName,
+			&i.Created,
+			&i.Errors,
+			&i.AvgDurationMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reportTotals = `-- name: ReportTotals :one
+SELECT count(*)                                         AS requests,
+       count(*) FILTER (WHERE status = 'created')       AS created,
+       count(*) FILTER (WHERE status = 'repeated')      AS repeated,
+       count(*) FILTER (WHERE status = 'rejected')      AS rejected,
+       count(*) FILTER (WHERE status = 'failed')        AS failed,
+       COALESCE(avg(duration_ms) FILTER (WHERE status = 'created'), 0)::integer AS avg_duration_ms
+FROM generation_log
+WHERE created_at >= $1 AND created_at < $2
+  AND ($3::text IS NULL OR project = $3)
+`
+
+type ReportTotalsParams struct {
+	FromTime time.Time
+	ToTime   time.Time
+	Project  *string
+}
+
+type ReportTotalsRow struct {
+	Requests      int64
+	Created       int64
+	Repeated      int64
+	Rejected      int64
+	Failed        int64
+	AvgDurationMs int32
+}
+
+// Отчёт за период [from, to): число запросов по статусам и среднее время выпуска.
+func (q *Queries) ReportTotals(ctx context.Context, arg ReportTotalsParams) (ReportTotalsRow, error) {
+	row := q.db.QueryRow(ctx, reportTotals, arg.FromTime, arg.ToTime, arg.Project)
+	var i ReportTotalsRow
+	err := row.Scan(
+		&i.Requests,
+		&i.Created,
+		&i.Repeated,
+		&i.Rejected,
+		&i.Failed,
+		&i.AvgDurationMs,
+	)
+	return i, err
 }

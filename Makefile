@@ -92,6 +92,15 @@ admin-add: ## Создать администратора: make admin-add email=
 	@test -n "$(email)" -a -n "$(name)" || (echo 'usage: make admin-add email=... name="..."' && exit 1)
 	cd $(BACKEND) && go run ./cmd/adminadd -email="$(email)" -name="$(name)"
 
+.PHONY: admin-demo
+admin-demo: ## Тестовая учётка бета-теста из ADMIN_DEMO_* (только тестовый стенд)
+	cd $(BACKEND) && go run ./cmd/adminadd -demo
+
+.PHONY: admin-disable
+admin-disable: ## Заблокировать администратора: make admin-disable email=...
+	@test -n "$(email)" || (echo 'usage: make admin-disable email=...' && exit 1)
+	cd $(BACKEND) && go run ./cmd/adminadd -disable -email="$(email)"
+
 ## ---------- линт ----------
 
 .PHONY: fmt

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"docgen/internal/db"
@@ -21,9 +22,27 @@ func (f *fakeProjectStore) CreateProject(_ context.Context, arg db.CreateProject
 		return db.Project{}, &pgconn.PgError{Code: "23505"}
 	}
 
-	p := db.Project{Code: arg.Code, Name: arg.Name}
+	p := db.Project{Code: arg.Code, Name: arg.Name, RetentionDays: 365}
+	if arg.RetentionDays != nil {
+		p.RetentionDays = *arg.RetentionDays
+	}
 	f.projects[arg.Code] = p
 
+	return p, nil
+}
+
+func (f *fakeProjectStore) UpdateProject(_ context.Context, arg db.UpdateProjectParams) (db.Project, error) {
+	p, ok := f.projects[arg.Code]
+	if !ok {
+		return db.Project{}, pgx.ErrNoRows
+	}
+	if arg.Name != nil {
+		p.Name = *arg.Name
+	}
+	if arg.RetentionDays != nil {
+		p.RetentionDays = *arg.RetentionDays
+	}
+	f.projects[arg.Code] = p
 	return p, nil
 }
 
@@ -86,4 +105,25 @@ func TestCreateProject(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProjectRetention(t *testing.T) {
+	s := newAdminTestServer(t)
+	token := s.login()
+
+	rec := s.do(http.MethodPost, "/admin/v1/projects", `{"code":"procurement","name":"Закупки","retention_days":1825}`, token)
+	var p projectResponse
+	if err := json.NewDecoder(rec.Body).Decode(&p); err != nil || rec.Code != http.StatusCreated || p.RetentionDays != 1825 {
+		t.Fatalf("create: status %d, %+v, %v", rec.Code, p, err)
+	}
+
+	rec = s.do(http.MethodPatch, "/admin/v1/projects/procurement", `{"retention_days":30}`, token)
+	if err := json.NewDecoder(rec.Body).Decode(&p); err != nil || rec.Code != http.StatusOK || p.RetentionDays != 30 || p.Name != "Закупки" {
+		t.Fatalf("update: status %d, %+v, %v", rec.Code, p, err)
+	}
+
+	assertErrorCode(t, s.do(http.MethodPatch, "/admin/v1/projects/procurement", `{"retention_days":0}`, token), http.StatusBadRequest, "invalid_retention_days")
+	assertErrorCode(t, s.do(http.MethodPatch, "/admin/v1/projects/procurement", `{"name":"  "}`, token), http.StatusBadRequest, "invalid_name")
+	assertErrorCode(t, s.do(http.MethodPatch, "/admin/v1/projects/nope", `{"name":"x"}`, token), http.StatusNotFound, "project_not_found")
+	assertErrorCode(t, s.do(http.MethodPost, "/admin/v1/projects", `{"code":"other","name":"x","retention_days":40000}`, token), http.StatusBadRequest, "invalid_retention_days")
 }
