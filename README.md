@@ -17,7 +17,7 @@ make key project=zakupki name="Портал закупок"   # ключ пор�
 
 ## Проверить в Postman
 
-Импортировать [examples/DocGen.postman_collection.json](examples/DocGen.postman_collection.json), во вкладке **Variables** коллекции указать `apiKey` и выполнять запросы 1–7 по порядку. Шаблоны и данные для них — в [examples/](examples): `opening_protocol` и `results_protocol` (`.docx` + `.json`), `opening_protocol_errors.json` — данные с ошибками. Если Postman не нашёл шаблон, выбрать файл в поле `template` (Body → form-data) или указать в Settings → General → Working directory корень репозитория.
+Импортировать [examples/DocGen.postman_collection.json](examples/DocGen.postman_collection.json), во вкладке **Variables** коллекции указать `apiKey` и выполнять запросы 1–7 по порядку. Шаблоны и данные для них — в [examples/](examples): `opening_protocol` и `results_protocol` (`.docx` + `.json`), `opening_protocol_errors.json` — данные с ошибками. Если Postman не нашёл шаблон, выбрать файл в поле `template` (Body → form-data) или указать в Settings → General → Working directory папку `examples`.
 
 ## Как портал выпускает документ
 

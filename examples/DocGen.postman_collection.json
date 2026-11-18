@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "DocGen",
-    "description": "Сервис выпуска документов по DOCX-шаблонам. Портал отправляет шаблон с метками {{ }} и JSON с данными — получает готовый PDF или DOCX.\n\n**Как начать**\n1. Получить ключ портала у команды DocGen (make key project=<код портала>).\n2. Вкладка Variables коллекции: baseUrl — адрес сервиса, apiKey — ключ. Сохранить.\n3. В запросах с шаблоном выбрать файл в поле template (Body → form-data), если Postman его не нашёл.\n4. Запросы по порядку: 1 → 7.\n\nКлюч передаётся в заголовке X-API-Key (настроено на уровне коллекции, вкладка Authorization). Ошибки всегда в виде {\"error\": {\"code\", \"message\", \"details\"}}. Шаблоны и данные для примера — папка examples в репозитории DocGen; полное описание API — backend/api/openapi.yaml.",
+    "description": "Сервис выпуска документов по DOCX-шаблонам. Портал отправляет шаблон с метками {{ }} и JSON с данными — получает готовый PDF или DOCX.\n\n**Как начать**\n1. Получить ключ портала у команды DocGen (make key project=<код портала>).\n2. Вкладка Variables коллекции: baseUrl — адрес сервиса, apiKey — ключ. Сохранить.\n3. Settings → General → Working directory — папка с шаблонами (examples из репозитория DocGen). Или выбрать файл в поле template (Body → form-data).\n4. Запросы по порядку: 1 → 7.\n\nКлюч передаётся в заголовке X-API-Key (настроено на уровне коллекции, вкладка Authorization). Ошибки всегда в виде {\"error\": {\"code\", \"message\", \"details\"}}. Шаблоны и данные для примера — папка examples в репозитории DocGen; полное описание API — backend/api/openapi.yaml.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -109,7 +109,7 @@
             {
               "key": "template",
               "type": "file",
-              "src": "examples/opening_protocol.docx",
+              "src": "opening_protocol.docx",
               "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
             }
           ]
@@ -139,7 +139,7 @@
                 {
                   "key": "template",
                   "type": "file",
-                  "src": "examples/opening_protocol.docx",
+                  "src": "opening_protocol.docx",
                   "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
                 }
               ]
@@ -179,7 +179,7 @@
                 {
                   "key": "template",
                   "type": "file",
-                  "src": "examples/opening_protocol.docx",
+                  "src": "opening_protocol.docx",
                   "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
                 }
               ]
@@ -225,7 +225,7 @@
             {
               "key": "template",
               "type": "file",
-              "src": "examples/opening_protocol.docx",
+              "src": "opening_protocol.docx",
               "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
             },
             {
@@ -266,7 +266,7 @@
             }
           ]
         },
-        "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+        "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = results_protocol.docx, data = содержимое results_protocol.json, template_name = results_protocol."
       },
       "event": [
         {
@@ -308,7 +308,7 @@
                 {
                   "key": "template",
                   "type": "file",
-                  "src": "examples/opening_protocol.docx",
+                  "src": "opening_protocol.docx",
                   "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
                 },
                 {
@@ -349,7 +349,7 @@
                 }
               ]
             },
-            "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+            "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = results_protocol.docx, data = содержимое results_protocol.json, template_name = results_protocol."
           },
           "status": "Created",
           "code": 201,
@@ -410,7 +410,7 @@
             {
               "key": "template",
               "type": "file",
-              "src": "examples/opening_protocol.docx",
+              "src": "opening_protocol.docx",
               "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
             },
             {
@@ -451,7 +451,7 @@
             }
           ]
         },
-        "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+        "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = results_protocol.docx, data = содержимое results_protocol.json, template_name = results_protocol."
       },
       "event": [
         {
@@ -493,7 +493,7 @@
                 {
                   "key": "template",
                   "type": "file",
-                  "src": "examples/opening_protocol.docx",
+                  "src": "opening_protocol.docx",
                   "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
                 },
                 {
@@ -534,7 +534,7 @@
                 }
               ]
             },
-            "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+            "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = results_protocol.docx, data = содержимое results_protocol.json, template_name = results_protocol."
           },
           "status": "Created",
           "code": 201,
@@ -595,7 +595,7 @@
             {
               "key": "template",
               "type": "file",
-              "src": "examples/opening_protocol.docx",
+              "src": "opening_protocol.docx",
               "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
             },
             {
@@ -636,7 +636,7 @@
             }
           ]
         },
-        "description": "Те же данные с ошибками (examples/opening_protocol_errors.json): сервис ничего не выпускает и перечисляет все проблемные поля в error.details — путь к полю и что не так."
+        "description": "Те же данные с ошибками (opening_protocol_errors.json): сервис ничего не выпускает и перечисляет все проблемные поля в error.details — путь к полю и что не так."
       },
       "response": [
         {
@@ -665,7 +665,7 @@
                 {
                   "key": "template",
                   "type": "file",
-                  "src": "examples/opening_protocol.docx",
+                  "src": "opening_protocol.docx",
                   "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
                 },
                 {
@@ -706,7 +706,7 @@
                 }
               ]
             },
-            "description": "Те же данные с ошибками (examples/opening_protocol_errors.json): сервис ничего не выпускает и перечисляет все проблемные поля в error.details — путь к полю и что не так."
+            "description": "Те же данные с ошибками (opening_protocol_errors.json): сервис ничего не выпускает и перечисляет все проблемные поля в error.details — путь к полю и что не так."
           },
           "status": "Bad Request",
           "code": 400,
