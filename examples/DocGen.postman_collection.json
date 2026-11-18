@@ -1,0 +1,831 @@
+{
+  "info": {
+    "name": "DocGen",
+    "description": "Сервис выпуска документов по DOCX-шаблонам. Портал отправляет шаблон с метками {{ }} и JSON с данными — получает готовый PDF или DOCX.\n\n**Как начать**\n1. Получить ключ портала у команды DocGen (make key project=<код портала>).\n2. Вкладка Variables коллекции: baseUrl — адрес сервиса, apiKey — ключ. Сохранить.\n3. В запросах с шаблоном выбрать файл в поле template (Body → form-data), если Postman его не нашёл.\n4. Запросы по порядку: 1 → 7.\n\nКлюч передаётся в заголовке X-API-Key (настроено на уровне коллекции, вкладка Authorization). Ошибки всегда в виде {\"error\": {\"code\", \"message\", \"details\"}}. Шаблоны и данные для примера — папка examples в репозитории DocGen; полное описание API — backend/api/openapi.yaml.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    },
+    {
+      "key": "documentId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Проверить ключ",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/whoami",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "whoami"
+          ]
+        },
+        "description": "Проверка ключа: какому порталу (проекту) он выдан. Без ключа или с отозванным — 401."
+      },
+      "response": [
+        {
+          "name": "Ключ действует",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/whoami",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "whoami"
+              ]
+            },
+            "description": "Проверка ключа: какому порталу (проекту) он выдан. Без ключа или с отозванным — 401."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"id\": \"01a1ed53-014d-7579-807d-7c837b9b6238\",\n  \"name\": \"Портал закупок\",\n  \"project\": \"zakupki\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "2. Проверить шаблон",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/templates/check",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "templates",
+            "check"
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "template",
+              "type": "file",
+              "src": "examples/opening_protocol.docx",
+              "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+            }
+          ]
+        },
+        "description": "Проверяет шаблон, ничего не выпуская: ответ — список полей, которые шаблон ждёт в данных (lots[].name — поле name у каждого элемента списка lots), и где они используются. Ошибка в шаблоне — 422 с меткой и местом."
+      },
+      "response": [
+        {
+          "name": "Шаблон в порядке",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/templates/check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "templates",
+                "check"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "template",
+                  "type": "file",
+                  "src": "examples/opening_protocol.docx",
+                  "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+                }
+              ]
+            },
+            "description": "Проверяет шаблон, ничего не выпуская: ответ — список полей, которые шаблон ждёт в данных (lots[].name — поле name у каждого элемента списка lots), и где они используются. Ошибка в шаблоне — 422 с меткой и местом."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"valid\": true,\n  \"variables\": [\n    {\n      \"path\": \"number\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"opened_at\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"datetime\"\n      ]\n    },\n    {\n      \"path\": \"customer.name_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"tender.number\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"tender.name_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"organizer.name_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"organizer.address_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"commission\",\n      \"usage\": [\n        \"each\"\n      ]\n    },\n    {\n      \"path\": \"commission[].name\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"commission[].position_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"commission[].role_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"total\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"money\",\n        \"moneywords:kk\",\n        \"capfirst\",\n        \"moneywords:ru\"\n      ]\n    },\n    {\n      \"path\": \"lots\",\n      \"usage\": [\n        \"each\"\n      ]\n    },\n    {\n      \"path\": \"lots[].number\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"lots[].name_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"lots[].description_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"lots[].quantity\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"number\"\n      ]\n    },\n    {\n      \"path\": \"lots[].price\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"money\"\n      ]\n    },\n    {\n      \"path\": \"lots[].amount\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"money\"\n      ]\n    },\n    {\n      \"path\": \"lots[].extra_kk\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"default:—\"\n      ]\n    },\n    {\n      \"path\": \"applicants_count\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"applicants\",\n      \"usage\": [\n        \"each\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].id\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].name_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].bin\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"bin\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].address_kk\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].submitted_at\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"datetime\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].documents\",\n      \"usage\": [\n        \"each\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].documents[].title\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].documents[].provided\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"check\"\n      ]\n    },\n    {\n      \"path\": \"note_kk\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"default:* Тапсырыс берушілер туралы мәлімет, егер тапсырыс берушілер бірнешеу болса көрсетілмейді.\"\n      ]\n    },\n    {\n      \"path\": \"customer.name_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"tender.name_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"organizer.name_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"organizer.address_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"commission[].position_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"commission[].role_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"lots[].name_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"lots[].description_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"lots[].extra_ru\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"default:—\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].name_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"applicants[].address_ru\",\n      \"usage\": [\n        \"value\"\n      ]\n    },\n    {\n      \"path\": \"note_ru\",\n      \"usage\": [\n        \"value\"\n      ],\n      \"filters\": [\n        \"default:* Сведения о заказчике не отображается, если несколько заказчиков.\"\n      ]\n    }\n  ]\n}"
+        },
+        {
+          "name": "Ошибка в шаблоне",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/templates/check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "templates",
+                "check"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "template",
+                  "type": "file",
+                  "src": "examples/opening_protocol.docx",
+                  "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+                }
+              ]
+            },
+            "description": "Проверяет шаблон, ничего не выпуская: ответ — список полей, которые шаблон ждёт в данных (lots[].name — поле name у каждого элемента списка lots), и где они используются. Ошибка в шаблоне — 422 с меткой и местом."
+          },
+          "status": "Unprocessable Entity",
+          "code": 422,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"error\": {\n    \"code\": \"invalid_template\",\n    \"message\": \"template cannot be used\",\n    \"details\": [\n      {\n        \"part\": \"основной текст\",\n        \"context\": \"{{#each lots}}{{@number}}\",\n        \"message\": \"{{#each lots}} не закрыт: нет {{/each}}\"\n      }\n    ]\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "3. Выпустить PDF",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/documents",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "documents"
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "template",
+              "type": "file",
+              "src": "examples/opening_protocol.docx",
+              "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+            },
+            {
+              "key": "data",
+              "type": "text",
+              "value": "{\"number\": \"100778-3-ОТ\", \"opened_at\": \"2026-10-20 12:00:12\", \"tender\": {\"number\": \"100778-3\", \"name_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\"}, \"customer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\"}, \"organizer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\", \"address_kk\": \"Қазақстан, Батыс Қазақстан облысы, Орал қ., Сынақ көшесі, 1\", \"address_ru\": \"Казахстан, Западно-Казахстанская область, г. Уральск, ул. Тестовая, 1\"}, \"commission\": [{\"name\": \"ТЕСТОВА АЙГУЛЬ СЕРИКОВНА\", \"position_kk\": \"Тендерлік сатып алу жөніндегі менеджер (топ жетекшісі)\", \"position_ru\": \"Менеджер по тендерным закупкам (руководитель группы)\", \"role_kk\": \"Хатшы\", \"role_ru\": \"Секретарь\"}, {\"name\": \"ПРИМЕРОВ АРМАН БОЛАТОВИЧ\", \"position_kk\": \"Бас директордың экономика және қаржы жөніндегі орынбасары\", \"position_ru\": \"Заместитель генерального директора по экономике и финансам\", \"role_kk\": \"Төраға\", \"role_ru\": \"Председатель\"}, {\"name\": \"ОБРАЗЦОВА ЕЛЕНА ИГОРЕВНА\", \"position_kk\": \"Бас есепші\", \"position_ru\": \"Главный бухгалтер\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"МАКЕТОВ ДАНИЯР КАЙРАТОВИЧ\", \"position_kk\": \"Бас экономист\", \"position_ru\": \"Главный экономист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"ШАБЛОНОВА ОЛЬГА ПЕТРОВНА\", \"position_kk\": \"Заңгер\", \"position_ru\": \"Юрист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}], \"total\": \"6000000.00\", \"lots\": [{\"number\": \"700152-ОТ3\", \"name_kk\": \"Қаржы есептемесінің тексеруін жүргізу бойынша қызмет көрсетулер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"description_kk\": \"Қаржылық есеп аудитін жүргізу бойынша қызмет\", \"description_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"extra_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"extra_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\", \"quantity\": \"1.000\", \"price\": \"6000000\", \"amount\": \"6000000\"}], \"applicants_count\": 3, \"applicants\": [{\"id\": \"1400395\", \"name_kk\": \"«АЛЬФА АУДИТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «АЛЬФА АУДИТ ТЕСТ»\", \"bin\": \"200440015102\", \"address_kk\": \"Қазақстан, Алматы қ., Сынақ ауданы, Үлгі көшесі, 10\", \"address_ru\": \"Казахстан, г. Алматы, Тестовый район, ул. Образцовая, 10\", \"submitted_at\": \"2026-10-20 11:09:01\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}, {\"title\": \"Сведения о внесенном обеспечении заявки\", \"provided\": true}, {\"title\": \"Согласие поставщика на участие в тендере\", \"provided\": true}, {\"title\": \"Сведения об отсутствии ограничений в закупках\", \"provided\": true}, {\"title\": \"Аудиторская деятельность\", \"provided\": true}]}, {\"id\": \"1400692\", \"name_kk\": \"«БЕТА КОНСАЛТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «БЕТА КОНСАЛТ ТЕСТ»\", \"bin\": 210640011783, \"address_kk\": \"Қазақстан, Алматы қ., Үлгі ауданы, Мысал көшесі, 200\", \"address_ru\": \"Казахстан, г. Алматы, Образцовый район, ул. Примерная, 200\", \"submitted_at\": \"2026-10-20T11:32:45+05:00\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}]}, {\"id\": \"1401293\", \"name_kk\": \"«ГАММА ЕСЕП ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «ГАММА УЧЕТ ТЕСТ»\", \"bin\": \"2207-4002-1944\", \"address_kk\": \"Қазақстан, Астана қ., Сынақ ауданы, Тест көшесі, 8/2, пошта индексі 010000\", \"address_ru\": \"Казахстан, г. Астана, Тестовый район, ул. Тестовая, 8/2, почтовый индекс 010000\", \"submitted_at\": \"2026-10-19 17:04:30\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}]}], \"note_kk\": null, \"note_ru\": null}",
+              "description": "JSON-объект с данными (текстом или файлом), до 5 МиБ"
+            },
+            {
+              "key": "format",
+              "type": "text",
+              "value": "pdf",
+              "description": "pdf или docx"
+            },
+            {
+              "key": "template_name",
+              "type": "text",
+              "value": "opening_protocol",
+              "description": "имя шаблона у портала — для журнала и отчётов"
+            },
+            {
+              "key": "external_id",
+              "type": "text",
+              "value": "tender:100778-3",
+              "description": "ID объекта в портале (тендер, договор)"
+            },
+            {
+              "key": "requested_by",
+              "type": "text",
+              "value": "user-17",
+              "description": "ID пользователя портала (не ФИО и не ИИН)"
+            },
+            {
+              "key": "retention_days",
+              "type": "text",
+              "value": "30",
+              "description": "сколько дней хранить документ; не больше срока проекта"
+            }
+          ]
+        },
+        "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201 || pm.response.code === 200) {",
+              "  pm.collectionVariables.set('documentId', pm.response.headers.get('X-Document-Id'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "Документ выпущен",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "template",
+                  "type": "file",
+                  "src": "examples/opening_protocol.docx",
+                  "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+                },
+                {
+                  "key": "data",
+                  "type": "text",
+                  "value": "{\"number\": \"100778-3-ОТ\", \"opened_at\": \"2026-10-20 12:00:12\", \"tender\": {\"number\": \"100778-3\", \"name_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\"}, \"customer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\"}, \"organizer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\", \"address_kk\": \"Қазақстан, Батыс Қазақстан облысы, Орал қ., Сынақ көшесі, 1\", \"address_ru\": \"Казахстан, Западно-Казахстанская область, г. Уральск, ул. Тестовая, 1\"}, \"commission\": [{\"name\": \"ТЕСТОВА АЙГУЛЬ СЕРИКОВНА\", \"position_kk\": \"Тендерлік сатып алу жөніндегі менеджер (топ жетекшісі)\", \"position_ru\": \"Менеджер по тендерным закупкам (руководитель группы)\", \"role_kk\": \"Хатшы\", \"role_ru\": \"Секретарь\"}, {\"name\": \"ПРИМЕРОВ АРМАН БОЛАТОВИЧ\", \"position_kk\": \"Бас директордың экономика және қаржы жөніндегі орынбасары\", \"position_ru\": \"Заместитель генерального директора по экономике и финансам\", \"role_kk\": \"Төраға\", \"role_ru\": \"Председатель\"}, {\"name\": \"ОБРАЗЦОВА ЕЛЕНА ИГОРЕВНА\", \"position_kk\": \"Бас есепші\", \"position_ru\": \"Главный бухгалтер\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"МАКЕТОВ ДАНИЯР КАЙРАТОВИЧ\", \"position_kk\": \"Бас экономист\", \"position_ru\": \"Главный экономист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"ШАБЛОНОВА ОЛЬГА ПЕТРОВНА\", \"position_kk\": \"Заңгер\", \"position_ru\": \"Юрист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}], \"total\": \"6000000.00\", \"lots\": [{\"number\": \"700152-ОТ3\", \"name_kk\": \"Қаржы есептемесінің тексеруін жүргізу бойынша қызмет көрсетулер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"description_kk\": \"Қаржылық есеп аудитін жүргізу бойынша қызмет\", \"description_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"extra_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"extra_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\", \"quantity\": \"1.000\", \"price\": \"6000000\", \"amount\": \"6000000\"}], \"applicants_count\": 3, \"applicants\": [{\"id\": \"1400395\", \"name_kk\": \"«АЛЬФА АУДИТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «АЛЬФА АУДИТ ТЕСТ»\", \"bin\": \"200440015102\", \"address_kk\": \"Қазақстан, Алматы қ., Сынақ ауданы, Үлгі көшесі, 10\", \"address_ru\": \"Казахстан, г. Алматы, Тестовый район, ул. Образцовая, 10\", \"submitted_at\": \"2026-10-20 11:09:01\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}, {\"title\": \"Сведения о внесенном обеспечении заявки\", \"provided\": true}, {\"title\": \"Согласие поставщика на участие в тендере\", \"provided\": true}, {\"title\": \"Сведения об отсутствии ограничений в закупках\", \"provided\": true}, {\"title\": \"Аудиторская деятельность\", \"provided\": true}]}, {\"id\": \"1400692\", \"name_kk\": \"«БЕТА КОНСАЛТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «БЕТА КОНСАЛТ ТЕСТ»\", \"bin\": 210640011783, \"address_kk\": \"Қазақстан, Алматы қ., Үлгі ауданы, Мысал көшесі, 200\", \"address_ru\": \"Казахстан, г. Алматы, Образцовый район, ул. Примерная, 200\", \"submitted_at\": \"2026-10-20T11:32:45+05:00\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}]}, {\"id\": \"1401293\", \"name_kk\": \"«ГАММА ЕСЕП ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «ГАММА УЧЕТ ТЕСТ»\", \"bin\": \"2207-4002-1944\", \"address_kk\": \"Қазақстан, Астана қ., Сынақ ауданы, Тест көшесі, 8/2, пошта индексі 010000\", \"address_ru\": \"Казахстан, г. Астана, Тестовый район, ул. Тестовая, 8/2, почтовый индекс 010000\", \"submitted_at\": \"2026-10-19 17:04:30\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}]}], \"note_kk\": null, \"note_ru\": null}",
+                  "description": "JSON-объект с данными (текстом или файлом), до 5 МиБ"
+                },
+                {
+                  "key": "format",
+                  "type": "text",
+                  "value": "pdf",
+                  "description": "pdf или docx"
+                },
+                {
+                  "key": "template_name",
+                  "type": "text",
+                  "value": "opening_protocol",
+                  "description": "имя шаблона у портала — для журнала и отчётов"
+                },
+                {
+                  "key": "external_id",
+                  "type": "text",
+                  "value": "tender:100778-3",
+                  "description": "ID объекта в портале (тендер, договор)"
+                },
+                {
+                  "key": "requested_by",
+                  "type": "text",
+                  "value": "user-17",
+                  "description": "ID пользователя портала (не ФИО и не ИИН)"
+                },
+                {
+                  "key": "retention_days",
+                  "type": "text",
+                  "value": "30",
+                  "description": "сколько дней хранить документ; не больше срока проекта"
+                }
+              ]
+            },
+            "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "text",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/pdf"
+            },
+            {
+              "key": "Content-Disposition",
+              "value": "attachment; filename=\"430c8bee83199aa8da8726cc1333cde6.pdf\""
+            },
+            {
+              "key": "X-Document-Id",
+              "value": "01a1ed53-afd0-7e4b-9d80-c0ab3ea43224"
+            },
+            {
+              "key": "X-Document-SHA256",
+              "value": "0c501ad5ce560c91f29ec8d23d27f42f91e7c8f67af6a436ef700bcc1e9b2822"
+            },
+            {
+              "key": "X-Document-Expires-At",
+              "value": "2026-12-18T06:24:07Z"
+            },
+            {
+              "key": "Location",
+              "value": "/v1/documents/01a1ed53-afd0-7e4b-9d80-c0ab3ea43224"
+            }
+          ],
+          "body": "<файл, 94986 байт>"
+        }
+      ]
+    },
+    {
+      "name": "4. Выпустить DOCX",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/documents",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "documents"
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "template",
+              "type": "file",
+              "src": "examples/opening_protocol.docx",
+              "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+            },
+            {
+              "key": "data",
+              "type": "text",
+              "value": "{\"number\": \"100778-3-ОТ\", \"opened_at\": \"2026-10-20 12:00:12\", \"tender\": {\"number\": \"100778-3\", \"name_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\"}, \"customer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\"}, \"organizer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\", \"address_kk\": \"Қазақстан, Батыс Қазақстан облысы, Орал қ., Сынақ көшесі, 1\", \"address_ru\": \"Казахстан, Западно-Казахстанская область, г. Уральск, ул. Тестовая, 1\"}, \"commission\": [{\"name\": \"ТЕСТОВА АЙГУЛЬ СЕРИКОВНА\", \"position_kk\": \"Тендерлік сатып алу жөніндегі менеджер (топ жетекшісі)\", \"position_ru\": \"Менеджер по тендерным закупкам (руководитель группы)\", \"role_kk\": \"Хатшы\", \"role_ru\": \"Секретарь\"}, {\"name\": \"ПРИМЕРОВ АРМАН БОЛАТОВИЧ\", \"position_kk\": \"Бас директордың экономика және қаржы жөніндегі орынбасары\", \"position_ru\": \"Заместитель генерального директора по экономике и финансам\", \"role_kk\": \"Төраға\", \"role_ru\": \"Председатель\"}, {\"name\": \"ОБРАЗЦОВА ЕЛЕНА ИГОРЕВНА\", \"position_kk\": \"Бас есепші\", \"position_ru\": \"Главный бухгалтер\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"МАКЕТОВ ДАНИЯР КАЙРАТОВИЧ\", \"position_kk\": \"Бас экономист\", \"position_ru\": \"Главный экономист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"ШАБЛОНОВА ОЛЬГА ПЕТРОВНА\", \"position_kk\": \"Заңгер\", \"position_ru\": \"Юрист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}], \"total\": \"6000000.00\", \"lots\": [{\"number\": \"700152-ОТ3\", \"name_kk\": \"Қаржы есептемесінің тексеруін жүргізу бойынша қызмет көрсетулер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"description_kk\": \"Қаржылық есеп аудитін жүргізу бойынша қызмет\", \"description_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"extra_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"extra_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\", \"quantity\": \"1.000\", \"price\": \"6000000\", \"amount\": \"6000000\"}], \"applicants_count\": 3, \"applicants\": [{\"id\": \"1400395\", \"name_kk\": \"«АЛЬФА АУДИТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «АЛЬФА АУДИТ ТЕСТ»\", \"bin\": \"200440015102\", \"address_kk\": \"Қазақстан, Алматы қ., Сынақ ауданы, Үлгі көшесі, 10\", \"address_ru\": \"Казахстан, г. Алматы, Тестовый район, ул. Образцовая, 10\", \"submitted_at\": \"2026-10-20 11:09:01\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}, {\"title\": \"Сведения о внесенном обеспечении заявки\", \"provided\": true}, {\"title\": \"Согласие поставщика на участие в тендере\", \"provided\": true}, {\"title\": \"Сведения об отсутствии ограничений в закупках\", \"provided\": true}, {\"title\": \"Аудиторская деятельность\", \"provided\": true}]}, {\"id\": \"1400692\", \"name_kk\": \"«БЕТА КОНСАЛТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «БЕТА КОНСАЛТ ТЕСТ»\", \"bin\": 210640011783, \"address_kk\": \"Қазақстан, Алматы қ., Үлгі ауданы, Мысал көшесі, 200\", \"address_ru\": \"Казахстан, г. Алматы, Образцовый район, ул. Примерная, 200\", \"submitted_at\": \"2026-10-20T11:32:45+05:00\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}]}, {\"id\": \"1401293\", \"name_kk\": \"«ГАММА ЕСЕП ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «ГАММА УЧЕТ ТЕСТ»\", \"bin\": \"2207-4002-1944\", \"address_kk\": \"Қазақстан, Астана қ., Сынақ ауданы, Тест көшесі, 8/2, пошта индексі 010000\", \"address_ru\": \"Казахстан, г. Астана, Тестовый район, ул. Тестовая, 8/2, почтовый индекс 010000\", \"submitted_at\": \"2026-10-19 17:04:30\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}]}], \"note_kk\": null, \"note_ru\": null}",
+              "description": "JSON-объект с данными (текстом или файлом), до 5 МиБ"
+            },
+            {
+              "key": "format",
+              "type": "text",
+              "value": "docx",
+              "description": "pdf или docx"
+            },
+            {
+              "key": "template_name",
+              "type": "text",
+              "value": "opening_protocol",
+              "description": "имя шаблона у портала — для журнала и отчётов"
+            },
+            {
+              "key": "external_id",
+              "type": "text",
+              "value": "tender:100778-3",
+              "description": "ID объекта в портале (тендер, договор)"
+            },
+            {
+              "key": "requested_by",
+              "type": "text",
+              "value": "user-17",
+              "description": "ID пользователя портала (не ФИО и не ИИН)"
+            },
+            {
+              "key": "retention_days",
+              "type": "text",
+              "value": "30",
+              "description": "сколько дней хранить документ; не больше срока проекта"
+            }
+          ]
+        },
+        "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201 || pm.response.code === 200) {",
+              "  pm.collectionVariables.set('documentId', pm.response.headers.get('X-Document-Id'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "Документ выпущен",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "template",
+                  "type": "file",
+                  "src": "examples/opening_protocol.docx",
+                  "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+                },
+                {
+                  "key": "data",
+                  "type": "text",
+                  "value": "{\"number\": \"100778-3-ОТ\", \"opened_at\": \"2026-10-20 12:00:12\", \"tender\": {\"number\": \"100778-3\", \"name_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\"}, \"customer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\"}, \"organizer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АКЦИОНЕРЛІК ҚОҒАМЫ\", \"name_ru\": \"АКЦИОНЕРНОЕ ОБЩЕСТВО «ТЕСТ МАШИНА»\", \"address_kk\": \"Қазақстан, Батыс Қазақстан облысы, Орал қ., Сынақ көшесі, 1\", \"address_ru\": \"Казахстан, Западно-Казахстанская область, г. Уральск, ул. Тестовая, 1\"}, \"commission\": [{\"name\": \"ТЕСТОВА АЙГУЛЬ СЕРИКОВНА\", \"position_kk\": \"Тендерлік сатып алу жөніндегі менеджер (топ жетекшісі)\", \"position_ru\": \"Менеджер по тендерным закупкам (руководитель группы)\", \"role_kk\": \"Хатшы\", \"role_ru\": \"Секретарь\"}, {\"name\": \"ПРИМЕРОВ АРМАН БОЛАТОВИЧ\", \"position_kk\": \"Бас директордың экономика және қаржы жөніндегі орынбасары\", \"position_ru\": \"Заместитель генерального директора по экономике и финансам\", \"role_kk\": \"Төраға\", \"role_ru\": \"Председатель\"}, {\"name\": \"ОБРАЗЦОВА ЕЛЕНА ИГОРЕВНА\", \"position_kk\": \"Бас есепші\", \"position_ru\": \"Главный бухгалтер\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"МАКЕТОВ ДАНИЯР КАЙРАТОВИЧ\", \"position_kk\": \"Бас экономист\", \"position_ru\": \"Главный экономист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}, {\"name\": \"ШАБЛОНОВА ОЛЬГА ПЕТРОВНА\", \"position_kk\": \"Заңгер\", \"position_ru\": \"Юрист\", \"role_kk\": \"Комиссияның мүшесі\", \"role_ru\": \"Член комиссии\"}], \"total\": \"6000000.00\", \"lots\": [{\"number\": \"700152-ОТ3\", \"name_kk\": \"Қаржы есептемесінің тексеруін жүргізу бойынша қызмет көрсетулер\", \"name_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"description_kk\": \"Қаржылық есеп аудитін жүргізу бойынша қызмет\", \"description_ru\": \"Услуги по проведению аудита финансовой отчетности\", \"extra_kk\": \"2026 жылдың қорытындысы бойынша «Тест Машина» АҚ-ға қаржылық есептілік аудитін жүргізу жөніндегі қызметтер\", \"extra_ru\": \"Услуги по проведению аудита финансовой отчетности по итогам 2026 года, на АО «Тест Машина»\", \"quantity\": \"1.000\", \"price\": \"6000000\", \"amount\": \"6000000\"}], \"applicants_count\": 3, \"applicants\": [{\"id\": \"1400395\", \"name_kk\": \"«АЛЬФА АУДИТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «АЛЬФА АУДИТ ТЕСТ»\", \"bin\": \"200440015102\", \"address_kk\": \"Қазақстан, Алматы қ., Сынақ ауданы, Үлгі көшесі, 10\", \"address_ru\": \"Казахстан, г. Алматы, Тестовый район, ул. Образцовая, 10\", \"submitted_at\": \"2026-10-20 11:09:01\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}, {\"title\": \"Сведения о внесенном обеспечении заявки\", \"provided\": true}, {\"title\": \"Согласие поставщика на участие в тендере\", \"provided\": true}, {\"title\": \"Сведения об отсутствии ограничений в закупках\", \"provided\": true}, {\"title\": \"Аудиторская деятельность\", \"provided\": true}]}, {\"id\": \"1400692\", \"name_kk\": \"«БЕТА КОНСАЛТ ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «БЕТА КОНСАЛТ ТЕСТ»\", \"bin\": 210640011783, \"address_kk\": \"Қазақстан, Алматы қ., Үлгі ауданы, Мысал көшесі, 200\", \"address_ru\": \"Казахстан, г. Алматы, Образцовый район, ул. Примерная, 200\", \"submitted_at\": \"2026-10-20T11:32:45+05:00\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}, {\"title\": \"Сведения о квалификации\", \"provided\": true}, {\"title\": \"Сведения о субподрядчиках\", \"provided\": false}, {\"title\": \"Консорциальное соглашение\", \"provided\": false}]}, {\"id\": \"1401293\", \"name_kk\": \"«ГАММА ЕСЕП ТЕСТ» ЖАУАПКЕРШІЛІГІ ШЕКТЕУЛІ СЕРІКТЕСТІГІ\", \"name_ru\": \"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «ГАММА УЧЕТ ТЕСТ»\", \"bin\": \"2207-4002-1944\", \"address_kk\": \"Қазақстан, Астана қ., Сынақ ауданы, Тест көшесі, 8/2, пошта индексі 010000\", \"address_ru\": \"Казахстан, г. Астана, Тестовый район, ул. Тестовая, 8/2, почтовый индекс 010000\", \"submitted_at\": \"2026-10-19 17:04:30\", \"documents\": [{\"title\": \"Техническая спецификация, согласно приложению 9\", \"provided\": true}, {\"title\": \"Тендерное ценовое предложение\", \"provided\": true}]}], \"note_kk\": null, \"note_ru\": null}",
+                  "description": "JSON-объект с данными (текстом или файлом), до 5 МиБ"
+                },
+                {
+                  "key": "format",
+                  "type": "text",
+                  "value": "docx",
+                  "description": "pdf или docx"
+                },
+                {
+                  "key": "template_name",
+                  "type": "text",
+                  "value": "opening_protocol",
+                  "description": "имя шаблона у портала — для журнала и отчётов"
+                },
+                {
+                  "key": "external_id",
+                  "type": "text",
+                  "value": "tender:100778-3",
+                  "description": "ID объекта в портале (тендер, договор)"
+                },
+                {
+                  "key": "requested_by",
+                  "type": "text",
+                  "value": "user-17",
+                  "description": "ID пользователя портала (не ФИО и не ИИН)"
+                },
+                {
+                  "key": "retention_days",
+                  "type": "text",
+                  "value": "30",
+                  "description": "сколько дней хранить документ; не больше срока проекта"
+                }
+              ]
+            },
+            "description": "Выпускает документ по шаблону и данным. Ответ — сам файл (Send and Download — сохранить), а в заголовках: X-Document-Id (ID для запросов ниже), X-Document-SHA256, X-Document-Expires-At.\n\nIdempotency-Key — уникальный ключ операции в портале. Повтор с тем же ключом и теми же полями вернёт тот же документ (200), с другими полями — 409. Здесь {{$guid}}, то есть каждый Send — новый документ.\n\nВторой шаблон: template = examples/results_protocol.docx, data = содержимое examples/results_protocol.json, template_name = results_protocol."
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "text",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            },
+            {
+              "key": "Content-Disposition",
+              "value": "attachment; filename=\"46b5c7a933d8891089fb6702a902db9e.docx\""
+            },
+            {
+              "key": "X-Document-Id",
+              "value": "01a1ed53-afec-7211-bbf7-b4bd6eca67c3"
+            },
+            {
+              "key": "X-Document-SHA256",
+              "value": "f5fa0f1bd396dfea661a0c2f897241b1c1f2b2bdb08635a9217a692129b29e61"
+            },
+            {
+              "key": "X-Document-Expires-At",
+              "value": "2026-12-18T06:24:07Z"
+            },
+            {
+              "key": "Location",
+              "value": "/v1/documents/01a1ed53-afec-7211-bbf7-b4bd6eca67c3"
+            }
+          ],
+          "body": "<файл, 13425 байт>"
+        }
+      ]
+    },
+    {
+      "name": "5. Ошибки в данных → 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/documents",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "documents"
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "template",
+              "type": "file",
+              "src": "examples/opening_protocol.docx",
+              "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+            },
+            {
+              "key": "data",
+              "type": "text",
+              "value": "{\"number\": \"100780-1-ОТ\", \"opened_at\": \"20.10.2026\", \"tender\": {\"number\": \"100780-1\", \"name_kk\": \"Тест\", \"name_ru\": \"Тест\"}, \"customer\": {\"name_ru\": \"АО «ТЕСТ МАШИНА»\"}, \"organizer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АҚ\", \"name_ru\": \"АО «ТЕСТ МАШИНА»\", \"address_kk\": \"Орал қ.\", \"address_ru\": \"г. Уральск\"}, \"commission\": \"не список\", \"total\": \"шесть миллионов\", \"lots\": [], \"applicants_count\": 1, \"applicants\": [{\"id\": \"1\", \"name_kk\": \"«ЭПСИЛОН ТЕСТ» ЖШС\", \"name_ru\": \"ТОО «ЭПСИЛОН ТЕСТ»\", \"bin\": \"123456789012\", \"address_kk\": \"—\", \"address_ru\": \"—\", \"submitted_at\": \"2026-10-20 12:00\", \"documents\": [{\"title\": \"Устав\", \"provided\": \"да\"}]}], \"note_kk\": null, \"note_ru\": null}",
+              "description": "JSON-объект с данными (текстом или файлом), до 5 МиБ"
+            },
+            {
+              "key": "format",
+              "type": "text",
+              "value": "pdf",
+              "description": "pdf или docx"
+            },
+            {
+              "key": "template_name",
+              "type": "text",
+              "value": "opening_protocol",
+              "description": "имя шаблона у портала — для журнала и отчётов"
+            },
+            {
+              "key": "external_id",
+              "type": "text",
+              "value": "tender:100778-3",
+              "description": "ID объекта в портале (тендер, договор)"
+            },
+            {
+              "key": "requested_by",
+              "type": "text",
+              "value": "user-17",
+              "description": "ID пользователя портала (не ФИО и не ИИН)"
+            },
+            {
+              "key": "retention_days",
+              "type": "text",
+              "value": "30",
+              "description": "сколько дней хранить документ; не больше срока проекта"
+            }
+          ]
+        },
+        "description": "Те же данные с ошибками (examples/opening_protocol_errors.json): сервис ничего не выпускает и перечисляет все проблемные поля в error.details — путь к полю и что не так."
+      },
+      "response": [
+        {
+          "name": "Ошибки в данных",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "template",
+                  "type": "file",
+                  "src": "examples/opening_protocol.docx",
+                  "description": "DOCX-шаблон с метками {{ }}, до 10 МиБ"
+                },
+                {
+                  "key": "data",
+                  "type": "text",
+                  "value": "{\"number\": \"100780-1-ОТ\", \"opened_at\": \"20.10.2026\", \"tender\": {\"number\": \"100780-1\", \"name_kk\": \"Тест\", \"name_ru\": \"Тест\"}, \"customer\": {\"name_ru\": \"АО «ТЕСТ МАШИНА»\"}, \"organizer\": {\"name_kk\": \"«ТЕСТ МАШИНА» АҚ\", \"name_ru\": \"АО «ТЕСТ МАШИНА»\", \"address_kk\": \"Орал қ.\", \"address_ru\": \"г. Уральск\"}, \"commission\": \"не список\", \"total\": \"шесть миллионов\", \"lots\": [], \"applicants_count\": 1, \"applicants\": [{\"id\": \"1\", \"name_kk\": \"«ЭПСИЛОН ТЕСТ» ЖШС\", \"name_ru\": \"ТОО «ЭПСИЛОН ТЕСТ»\", \"bin\": \"123456789012\", \"address_kk\": \"—\", \"address_ru\": \"—\", \"submitted_at\": \"2026-10-20 12:00\", \"documents\": [{\"title\": \"Устав\", \"provided\": \"да\"}]}], \"note_kk\": null, \"note_ru\": null}",
+                  "description": "JSON-объект с данными (текстом или файлом), до 5 МиБ"
+                },
+                {
+                  "key": "format",
+                  "type": "text",
+                  "value": "pdf",
+                  "description": "pdf или docx"
+                },
+                {
+                  "key": "template_name",
+                  "type": "text",
+                  "value": "opening_protocol",
+                  "description": "имя шаблона у портала — для журнала и отчётов"
+                },
+                {
+                  "key": "external_id",
+                  "type": "text",
+                  "value": "tender:100778-3",
+                  "description": "ID объекта в портале (тендер, договор)"
+                },
+                {
+                  "key": "requested_by",
+                  "type": "text",
+                  "value": "user-17",
+                  "description": "ID пользователя портала (не ФИО и не ИИН)"
+                },
+                {
+                  "key": "retention_days",
+                  "type": "text",
+                  "value": "30",
+                  "description": "сколько дней хранить документ; не больше срока проекта"
+                }
+              ]
+            },
+            "description": "Те же данные с ошибками (examples/opening_protocol_errors.json): сервис ничего не выпускает и перечисляет все проблемные поля в error.details — путь к полю и что не так."
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"error\": {\n    \"code\": \"invalid_data\",\n    \"message\": \"data does not match the template\",\n    \"details\": [\n      {\n        \"field\": \"opened_at\",\n        \"message\": \"datetime: не дата: \\\"20.10.2026\\\" (нужно ГГГГ-ММ-ДД, ГГГГ-ММ-ДД ЧЧ:ММ[:СС] или RFC 3339)\"\n      },\n      {\n        \"field\": \"customer.name_kk\",\n        \"message\": \"нет в данных\"\n      },\n      {\n        \"field\": \"commission\",\n        \"message\": \"ожидается список (массив) для {{#each}}\"\n      },\n      {\n        \"field\": \"total\",\n        \"message\": \"money: не число: \\\"шесть миллионов\\\"\"\n      },\n      {\n        \"field\": \"total\",\n        \"message\": \"moneywords: не число: \\\"шесть миллионов\\\"\"\n      },\n      {\n        \"field\": \"applicants[0].bin\",\n        \"message\": \"bin: неверный БИН/ИИН: \\\"123456789012\\\"\"\n      },\n      {\n        \"field\": \"applicants[0].documents[0].provided\",\n        \"message\": \"check: ожидается true или false, получено строка\"\n      }\n    ]\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "6. Метаданные документа",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/documents/{{documentId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "documents",
+            "{{documentId}}"
+          ]
+        },
+        "description": "Метаданные документа по X-Document-Id (запоминается после запросов 3–4). Чужой проект — 404, истёк срок хранения — 410."
+      },
+      "response": [
+        {
+          "name": "Документ",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents/{{documentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "documents",
+                "{{documentId}}"
+              ]
+            },
+            "description": "Метаданные документа по X-Document-Id (запоминается после запросов 3–4). Чужой проект — 404, истёк срок хранения — 410."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"id\": \"01a1ed53-afd0-7e4b-9d80-c0ab3ea43224\",\n  \"template_name\": \"opening_protocol\",\n  \"template_sha256\": \"b3e52cb13edbd39581cdebdb140198f49beef5ea0575d2d0366dd271f570538b\",\n  \"format\": \"pdf\",\n  \"external_id\": \"tender:100778-3\",\n  \"requested_by\": \"user-17\",\n  \"file_sha256\": \"0c501ad5ce560c91f29ec8d23d27f42f91e7c8f67af6a436ef700bcc1e9b2822\",\n  \"file_size\": 94986,\n  \"created_at\": \"2026-11-18T11:24:07.11032+05:00\",\n  \"expires_at\": \"2026-12-18T11:24:07.104041+05:00\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "7. Скачать документ",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/documents/{{documentId}}/file",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "documents",
+            "{{documentId}}",
+            "file"
+          ]
+        },
+        "description": "Скачать выпущенный файл ещё раз (Send and Download)."
+      },
+      "response": [
+        {
+          "name": "Файл",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents/{{documentId}}/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "documents",
+                "{{documentId}}",
+                "file"
+              ]
+            },
+            "description": "Скачать выпущенный файл ещё раз (Send and Download)."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "text",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/pdf"
+            },
+            {
+              "key": "Content-Disposition",
+              "value": "attachment; filename=\"430c8bee83199aa8da8726cc1333cde6.pdf\""
+            }
+          ],
+          "body": "<файл, 94986 байт>"
+        }
+      ]
+    }
+  ]
+}

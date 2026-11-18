@@ -4,26 +4,20 @@
 
 ТЗ: [docs/ТЗ DocGen ред. 2.docx](docs/ТЗ%20DocGen%20ред.%202.docx). Контракт API: [backend/api/openapi.yaml](backend/api/openapi.yaml).
 
-## Быстрый старт
+## Запуск
 
-Нужны Go, Node.js, Docker, `golangci-lint`, `sqlc`, `goose`.
-
-```bash
-cp .env.example .env          # при необходимости поправить порты
-make up                       # Postgres, MinIO, Gotenberg
-make migrate-up
-make admin-add email=me@example.com name="Имя"   # пароль печатается один раз
-make admin-install && make admin-build           # админка в admin/dist
-make run                      # http://localhost:8080, админка — /admin/
-```
-
-Проект (портал) создаётся в админке («Проекты») или API, затем ему выдаётся ключ:
+Нужны Go, Node.js и Docker.
 
 ```bash
-make keygen name="Портал закупок" project=procurement   # ключ печатается один раз
-make keylist                                            # список ключей
-make keyrevoke id=<ID из keylist>                       # отозвать ключ
+make dev                                         # всё сразу: .env, контейнеры, миграции, админка, сервис
+make key project=zakupki name="Портал закупок"   # ключ порталу (печатается один раз), проект создаётся сам
 ```
+
+Сервис — `http://localhost:8080`, админка — `http://localhost:8080/admin/` (локально без входа). Остановить контейнеры — `make down`, остальные команды — `make help`.
+
+## Проверить в Postman
+
+Импортировать [examples/DocGen.postman_collection.json](examples/DocGen.postman_collection.json), во вкладке **Variables** коллекции указать `apiKey` и выполнять запросы 1–7 по порядку. Шаблоны и данные для них — в [examples/](examples): `opening_protocol` и `results_protocol` (`.docx` + `.json`), `opening_protocol_errors.json` — данные с ошибками. Если Postman не нашёл шаблон, выбрать файл в поле `template` (Body → form-data) или указать в Settings → General → Working directory корень репозитория.
 
 ## Как портал выпускает документ
 
@@ -55,8 +49,8 @@ curl http://localhost:8080/v1/documents \
 
 ```bash
 make check              # линтер + unit-тесты
-make test-integration   # + Postgres, MinIO, Gotenberg (нужен make up и база на последней миграции)
-make admin-dev          # админка на :5173 с прокси к make run
+make test-integration   # + Postgres, MinIO, Gotenberg (нужен запущенный make dev или make up)
+make admin-dev          # админка на :5173 с горячей перезагрузкой (API — make dev)
 ```
 
 Эталонные тесты (`backend/internal/golden`) выпускают синтетический двуязычный протокол и сравнивают DOCX и PDF с эталонами. После намеренных изменений движка, шрифтов или Gotenberg:
@@ -67,4 +61,6 @@ cd backend && DOCGEN_INTEGRATION=1 go test ./internal/golden -update
 
 — посмотреть новые `testdata/*.golden.*` и закоммитить.
 
-Демо-стенд можно открыть без входа в админку: `ADMIN_AUTH_DISABLED=true` (только с тестовыми данными — журнал показывает входные данные документов).
+## Боевой стенд
+
+Локально и на тестовом стенде админка открыта без входа (`ADMIN_AUTH_DISABLED=true` в `.env.example`). На боевом — `ADMIN_AUTH_DISABLED=false` и учётки через `make admin-add email=... name="..."`: журнал показывает входные данные документов.
