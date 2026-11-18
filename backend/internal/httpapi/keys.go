@@ -26,6 +26,7 @@ type KeyStore interface {
 	ListAPIClients(ctx context.Context, project *string) ([]db.ListAPIClientsRow, error)
 	CreateAPIClient(ctx context.Context, arg db.CreateAPIClientParams) (db.APIClient, error)
 	RevokeAPIClient(ctx context.Context, id uuid.UUID) (db.RevokeAPIClientRow, error)
+	DeleteAPIClient(ctx context.Context, id uuid.UUID) (db.DeleteAPIClientRow, error)
 	CreateAuditEntry(ctx context.Context, arg db.CreateAuditEntryParams) error
 }
 
@@ -36,6 +37,8 @@ type keyResponse struct {
 	KeyPrefix string     `json:"key_prefix"`
 	CreatedAt time.Time  `json:"created_at"`
 	RevokedAt *time.Time `json:"revoked_at"`
+	// Used — по ключу есть документы или журнал: его можно только отозвать. Только в списке.
+	Used *bool `json:"used,omitempty"`
 }
 
 // issuedKeyResponse — ключ целиком показывается только в ответе на выдачу.
@@ -56,7 +59,7 @@ func listKeysHandler(store KeyStore) http.HandlerFunc {
 
 		keys := make([]keyResponse, 0, len(rows))
 		for _, k := range rows {
-			keys = append(keys, keyResponse{ID: k.ID, Name: k.Name, Project: k.Project, KeyPrefix: k.KeyPrefix, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt})
+			keys = append(keys, keyResponse{ID: k.ID, Name: k.Name, Project: k.Project, KeyPrefix: k.KeyPrefix, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt, Used: &k.Used})
 		}
 		writeJSON(w, r, http.StatusOK, keys)
 	}
@@ -125,6 +128,35 @@ func revokeKeyHandler(store KeyStore) http.HandlerFunc {
 
 		audit(r.Context(), store, "api_key.revoke", k.ID, k.Project, k.Name, k.KeyPrefix)
 		writeJSON(w, r, http.StatusOK, keyResponse{ID: k.ID, Name: k.Name, Project: k.Project, KeyPrefix: k.KeyPrefix, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt})
+	}
+}
+
+// deleteKeyHandler — DELETE /admin/v1/keys/{id}: убрать отозванный ключ, которым ничего
+// не выпускали (например, выданный по ошибке). Ключ с документами или журналом остаётся навсегда.
+func deleteKeyHandler(store KeyStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := parseUUIDParam(w, r, "id")
+		if !ok {
+			return
+		}
+
+		k, err := store.DeleteAPIClient(r.Context(), id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, r, http.StatusNotFound, "key_not_found", "key not found or not revoked")
+			return
+		}
+		if pgerr.IsForeignKeyViolation(err) {
+			writeError(w, r, http.StatusConflict, "key_in_use", "key has documents or journal entries; it can only be revoked")
+			return
+		}
+		if err != nil {
+			slog.ErrorContext(r.Context(), "delete api key", "err", err)
+			writeError(w, r, http.StatusInternalServerError, "internal", "internal server error")
+			return
+		}
+
+		audit(r.Context(), store, "api_key.delete", k.ID, k.Project, k.Name, k.KeyPrefix)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

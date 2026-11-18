@@ -20,16 +20,17 @@ import (
 // fakeKeyStore — ключи и записи аудита в памяти; проекты — test и other.
 type fakeKeyStore struct {
 	keys  []db.APIClient
+	used  map[uuid.UUID]bool
 	audit []db.CreateAuditEntryParams
 }
 
-func newFakeKeyStore() *fakeKeyStore { return &fakeKeyStore{} }
+func newFakeKeyStore() *fakeKeyStore { return &fakeKeyStore{used: map[uuid.UUID]bool{}} }
 
 func (f *fakeKeyStore) ListAPIClients(_ context.Context, project *string) ([]db.ListAPIClientsRow, error) {
 	var rows []db.ListAPIClientsRow
 	for _, k := range f.keys {
 		if project == nil || k.Project == *project {
-			rows = append(rows, db.ListAPIClientsRow{ID: k.ID, Name: k.Name, Project: k.Project, KeyPrefix: k.KeyPrefix, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt})
+			rows = append(rows, db.ListAPIClientsRow{ID: k.ID, Name: k.Name, Project: k.Project, KeyPrefix: k.KeyPrefix, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt, Used: f.used[k.ID]})
 		}
 	}
 	return rows, nil
@@ -55,6 +56,19 @@ func (f *fakeKeyStore) RevokeAPIClient(_ context.Context, id uuid.UUID) (db.Revo
 	return db.RevokeAPIClientRow{}, pgx.ErrNoRows
 }
 
+func (f *fakeKeyStore) DeleteAPIClient(_ context.Context, id uuid.UUID) (db.DeleteAPIClientRow, error) {
+	for i, k := range f.keys {
+		if k.ID == id && k.RevokedAt != nil {
+			if f.used[id] {
+				return db.DeleteAPIClientRow{}, &pgconn.PgError{Code: "23503"}
+			}
+			f.keys = append(f.keys[:i], f.keys[i+1:]...)
+			return db.DeleteAPIClientRow{ID: k.ID, Name: k.Name, Project: k.Project, KeyPrefix: k.KeyPrefix}, nil
+		}
+	}
+	return db.DeleteAPIClientRow{}, pgx.ErrNoRows
+}
+
 func (f *fakeKeyStore) CreateAuditEntry(_ context.Context, arg db.CreateAuditEntryParams) error {
 	f.audit = append(f.audit, arg)
 	return nil
@@ -66,6 +80,7 @@ func TestKeysRequireSession(t *testing.T) {
 		{http.MethodGet, "/admin/v1/projects/test/keys"},
 		{http.MethodPost, "/admin/v1/projects/test/keys"},
 		{http.MethodPost, "/admin/v1/keys/" + uuid.NewString() + "/revoke"},
+		{http.MethodDelete, "/admin/v1/keys/" + uuid.NewString()},
 	} {
 		if rec := s.do(c.method, c.path, `{"name":"x"}`, ""); rec.Code != http.StatusUnauthorized {
 			t.Errorf("%s %s: status = %d, want 401", c.method, c.path, rec.Code)
@@ -147,5 +162,51 @@ func TestIssueKeyErrors(t *testing.T) {
 	}
 	if len(s.keys.keys) != 0 || len(s.keys.audit) != 0 {
 		t.Errorf("nothing must be stored: keys %d, audit %d", len(s.keys.keys), len(s.keys.audit))
+	}
+}
+
+func TestDeleteKey(t *testing.T) {
+	s := newAdminTestServer(t)
+	token := s.login()
+
+	issue := func() uuid.UUID {
+		rec := s.do(http.MethodPost, "/admin/v1/projects/test/keys", `{"name":"x"}`, token)
+		var k struct {
+			ID uuid.UUID `json:"id"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &k); err != nil {
+			t.Fatal(err)
+		}
+		return k.ID
+	}
+	unused, used := issue(), issue()
+	s.keys.used[used] = true
+
+	if rec := s.do(http.MethodDelete, "/admin/v1/keys/"+unused.String(), "", token); rec.Code != http.StatusNotFound {
+		t.Errorf("delete active key: status = %d, want 404", rec.Code)
+	}
+	for _, id := range []uuid.UUID{unused, used} {
+		s.do(http.MethodPost, "/admin/v1/keys/"+id.String()+"/revoke", "", token)
+	}
+
+	rec := s.do(http.MethodGet, "/admin/v1/projects/test/keys", "", token)
+	if !strings.Contains(rec.Body.String(), `"used":true`) || !strings.Contains(rec.Body.String(), `"used":false`) {
+		t.Errorf("list must show used: %s", rec.Body.String())
+	}
+
+	if rec := s.do(http.MethodDelete, "/admin/v1/keys/"+used.String(), "", token); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), `"key_in_use"`) {
+		t.Errorf("delete used key: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	if rec := s.do(http.MethodDelete, "/admin/v1/keys/"+unused.String(), "", token); rec.Code != http.StatusNoContent {
+		t.Errorf("delete unused key: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	if rec := s.do(http.MethodDelete, "/admin/v1/keys/"+unused.String(), "", token); rec.Code != http.StatusNotFound {
+		t.Errorf("second delete: status = %d, want 404", rec.Code)
+	}
+	if len(s.keys.keys) != 1 || s.keys.keys[0].ID != used {
+		t.Errorf("keys left = %+v, want only the used one", s.keys.keys)
+	}
+	if last := s.keys.audit[len(s.keys.audit)-1]; last.Action != "api_key.delete" || last.EntityID != unused {
+		t.Errorf("last audit = %+v", last)
 	}
 }

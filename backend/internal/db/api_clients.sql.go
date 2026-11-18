@@ -45,6 +45,32 @@ func (q *Queries) CreateAPIClient(ctx context.Context, arg CreateAPIClientParams
 	return i, err
 }
 
+const deleteAPIClient = `-- name: DeleteAPIClient :one
+DELETE FROM api_clients
+WHERE id = $1 AND revoked_at IS NOT NULL
+RETURNING id, name, project, key_prefix
+`
+
+type DeleteAPIClientRow struct {
+	ID        uuid.UUID
+	Name      string
+	Project   string
+	KeyPrefix string
+}
+
+// Удаляется только отозванный ключ; если по нему есть документы или журнал, мешает внешний ключ.
+func (q *Queries) DeleteAPIClient(ctx context.Context, id uuid.UUID) (DeleteAPIClientRow, error) {
+	row := q.db.QueryRow(ctx, deleteAPIClient, id)
+	var i DeleteAPIClientRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Project,
+		&i.KeyPrefix,
+	)
+	return i, err
+}
+
 const getActiveAPIClientByKeyHash = `-- name: GetActiveAPIClientByKeyHash :one
 SELECT id, name, project, key_hash, key_prefix, created_at, revoked_at FROM api_clients WHERE key_hash = $1 AND revoked_at IS NULL
 `
@@ -65,10 +91,12 @@ func (q *Queries) GetActiveAPIClientByKeyHash(ctx context.Context, keyHash []byt
 }
 
 const listAPIClients = `-- name: ListAPIClients :many
-SELECT id, name, project, key_prefix, created_at, revoked_at
-FROM api_clients
-WHERE $1::text IS NULL OR project = $1
-ORDER BY project, created_at
+SELECT c.id, c.name, c.project, c.key_prefix, c.created_at, c.revoked_at,
+       (EXISTS (SELECT 1 FROM documents d WHERE d.api_client_id = c.id)
+           OR EXISTS (SELECT 1 FROM generation_log g WHERE g.api_client_id = c.id))::bool AS used
+FROM api_clients c
+WHERE $1::text IS NULL OR c.project = $1
+ORDER BY c.project, c.created_at
 `
 
 type ListAPIClientsRow struct {
@@ -78,9 +106,11 @@ type ListAPIClientsRow struct {
 	KeyPrefix string
 	CreatedAt time.Time
 	RevokedAt *time.Time
+	Used      bool
 }
 
 // Ключи для keygen -list и админки: сам ключ не хранится, видно только начало.
+// used — по ключу есть документы или записи журнала, такой ключ нельзя удалить.
 func (q *Queries) ListAPIClients(ctx context.Context, project *string) ([]ListAPIClientsRow, error) {
 	rows, err := q.db.Query(ctx, listAPIClients, project)
 	if err != nil {
@@ -97,6 +127,7 @@ func (q *Queries) ListAPIClients(ctx context.Context, project *string) ([]ListAP
 			&i.KeyPrefix,
 			&i.CreatedAt,
 			&i.RevokedAt,
+			&i.Used,
 		); err != nil {
 			return nil, err
 		}

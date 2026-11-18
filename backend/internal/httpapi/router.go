@@ -66,6 +66,7 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/projects/{code}/keys", listKeysHandler(deps.Keys))
 			r.Post("/projects/{code}/keys", issueKeyHandler(deps.Keys))
 			r.Post("/keys/{id}/revoke", revokeKeyHandler(deps.Keys))
+			r.Delete("/keys/{id}", deleteKeyHandler(deps.Keys))
 			r.Get("/journal", journalHandler(deps.JournalReader))
 			r.Get("/journal/{id}", journalEntryHandler(deps.JournalReader))
 			r.Get("/reports", reportsHandler(deps.JournalReader))

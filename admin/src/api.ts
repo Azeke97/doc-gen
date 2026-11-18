@@ -24,6 +24,8 @@ export interface ApiKey {
   key_prefix: string
   created_at: string
   revoked_at: string | null
+  /** По ключу есть документы или журнал: его можно только отозвать. */
+  used?: boolean
 }
 
 /** Только что выданный ключ: key показывается один раз. */
@@ -213,6 +215,7 @@ export const api = {
   issueKey: (project: string, name: string) =>
     call<IssuedKey>('POST', `/projects/${encodeURIComponent(project)}/keys`, { name }),
   revokeKey: (id: string) => call<ApiKey>('POST', `/keys/${id}/revoke`),
+  deleteKey: (id: string) => call<void>('DELETE', `/keys/${id}`),
 
   journal: (f: JournalFilter & { limit?: number }) => call<JournalPage>('GET', '/journal' + query(f)),
   journalEntry: (id: string) => call<JournalCard>('GET', `/journal/${id}`),

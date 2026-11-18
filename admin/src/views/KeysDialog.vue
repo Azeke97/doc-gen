@@ -76,6 +76,30 @@ async function revoke(k: ApiKey) {
   }
   await load()
 }
+
+// Удалить можно только отозванный ключ, которым ничего не выпускали: например, выданный по ошибке.
+async function remove(k: ApiKey) {
+  try {
+    await ElMessageBox.confirm(
+      `Ключом ${k.key_prefix}… не выпускали документов, он исчезнет из списка. Запись о выдаче останется в аудите.`,
+      `Удалить ключ «${k.name}»?`,
+      { confirmButtonText: 'Удалить', cancelButtonText: 'Отмена', type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await api.deleteKey(k.id)
+    ElMessage.success('Ключ удалён')
+  } catch (e) {
+    ElMessage.error(
+      e instanceof ApiError && e.code === 'key_in_use'
+        ? 'Ключом уже выпускали документы — он остаётся в списке'
+        : errorText(e),
+    )
+  }
+  await load()
+}
 </script>
 
 <template>
@@ -111,6 +135,7 @@ async function revoke(k: ApiKey) {
       <el-table-column label="" width="100" align="right">
         <template #default="{ row }">
           <el-button v-if="!row.revoked_at" link type="danger" @click="revoke(row)">Отозвать</el-button>
+          <el-button v-else-if="!row.used" link type="danger" @click="remove(row)">Удалить</el-button>
         </template>
       </el-table-column>
     </el-table>

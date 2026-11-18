@@ -539,6 +539,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/v1/keys/{id}:
+    delete:
+      summary: Удалить отозванный неиспользованный ключ
+      description: >-
+        Для ключей, выданных по ошибке. Удаляется только отозванный ключ, по которому нет
+        документов и записей журнала (`used=false` в списке); остальные можно только отозвать.
+        Действие пишется в audit_log.
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Ключ удалён
+        "400":
+          description: invalid_id — ID не UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: key_not_found — ключа нет или он не отозван
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: key_in_use — по ключу есть документы или журнал
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /admin/v1/login-info:
     get:
       summary: Нужен ли вход в админку
@@ -741,6 +782,9 @@ components:
           example: dg_ZJu07
         created_at: {type: string, format: date-time}
         revoked_at: {type: [string, "null"], format: date-time}
+        used:
+          type: boolean
+          description: Только в списке ключей. true — по ключу есть документы или журнал, удалить его нельзя
 
     JournalEntry:
       type: object
