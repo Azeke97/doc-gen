@@ -16,6 +16,7 @@ type Deps struct {
 	AdminAuth       AdminAuthStore
 	AdminSessionTTL time.Duration
 	Projects        ProjectStore
+	Keys            KeyStore
 	Documents       DocumentService
 	Journal         JournalStore
 	JournalReader   JournalReader
@@ -62,6 +63,9 @@ func NewRouter(deps Deps) http.Handler {
 			r.Post("/projects", createProjectHandler(deps.Projects))
 			r.Get("/projects", listProjectsHandler(deps.Projects))
 			r.Patch("/projects/{code}", updateProjectHandler(deps.Projects))
+			r.Get("/projects/{code}/keys", listKeysHandler(deps.Keys))
+			r.Post("/projects/{code}/keys", issueKeyHandler(deps.Keys))
+			r.Post("/keys/{id}/revoke", revokeKeyHandler(deps.Keys))
 			r.Get("/journal", journalHandler(deps.JournalReader))
 			r.Get("/journal/{id}", journalEntryHandler(deps.JournalReader))
 			r.Get("/reports", reportsHandler(deps.JournalReader))

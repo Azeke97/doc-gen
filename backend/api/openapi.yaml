@@ -429,6 +429,116 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/v1/projects/{code}/keys:
+    get:
+      summary: API-ключи проекта
+      description: Сам ключ не хранится — видно только начало (key_prefix).
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ключи, старые первыми
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Выдать ключ порталу
+      description: Ключ целиком возвращается только в этом ответе. Действие пишется в audit_log.
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                  example: Портал закупок, тест
+      responses:
+        "201":
+          description: Ключ выдан
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiKey"
+                  - type: object
+                    required: [key]
+                    properties:
+                      key:
+                        type: string
+                        example: dg_ZJu07K5fPY90acO7GxujeofTHwWwMFCyS2krV6ekH
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: project_not_found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/v1/keys/{id}/revoke:
+    post:
+      summary: Отозвать ключ
+      description: Портал с этим ключом сразу получает 401. Ключ остаётся в списке как отозванный. Действие пишется в audit_log.
+      tags: [admin]
+      security:
+        - AdminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ключ отозван
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        "400":
+          description: invalid_id — ID не UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: key_not_found — ключа нет или он уже отозван
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /admin/v1/login-info:
     get:
       summary: Нужен ли вход в админку
@@ -617,6 +727,20 @@ components:
         created_at:
           type: string
           format: date-time
+
+    ApiKey:
+      type: object
+      required: [id, name, project, key_prefix, created_at, revoked_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        project: {type: string}
+        key_prefix:
+          type: string
+          description: Начало ключа, по которому его узнают
+          example: dg_ZJu07
+        created_at: {type: string, format: date-time}
+        revoked_at: {type: [string, "null"], format: date-time}
 
     JournalEntry:
       type: object

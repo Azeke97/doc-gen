@@ -18,6 +18,8 @@ make dev                         # поднимает всё и запускае
 make key project=zakupki         # в другом терминале: ключ портала, печатается один раз
 ```
 
+Ключ можно выдать и в админке: `http://localhost:8080/admin/` → **Проекты** → **Ключи** → **Выдать ключ**.
+
 ## Postman
 
 1. **Import** → `DocGen.postman_collection.json`.

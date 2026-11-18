@@ -13,7 +13,7 @@ make dev                                         # всё сразу: .env, ко
 make key project=zakupki name="Портал закупок"   # ключ порталу (печатается один раз), проект создаётся сам
 ```
 
-Сервис — `http://localhost:8080`, админка — `http://localhost:8080/admin/` (локально без входа). Остановить контейнеры — `make down`, остальные команды — `make help`.
+Сервис — `http://localhost:8080`, админка — `http://localhost:8080/admin/` (локально без входа). Проекты и ключи можно вести и в админке: **Проекты** → **Ключи** (выдать, отозвать). Остановить контейнеры — `make down`, остальные команды — `make help`.
 
 ## Проверить в Postman
 
@@ -63,4 +63,4 @@ cd backend && DOCGEN_INTEGRATION=1 go test ./internal/golden -update
 
 ## Боевой стенд
 
-Локально и на тестовом стенде админка открыта без входа (`ADMIN_AUTH_DISABLED=true` в `.env.example`). На боевом — `ADMIN_AUTH_DISABLED=false` и учётки через `make admin-add email=... name="..."`: журнал показывает входные данные документов.
+Локально и на тестовом стенде админка открыта без входа (`ADMIN_AUTH_DISABLED=true` в `.env.example`). На боевом — `ADMIN_AUTH_DISABLED=false` и учётки через `make admin-add email=... name="..."`: журнал показывает входные данные документов, а в админке выдаются ключи порталов. Выдача и отзыв ключей пишутся в `audit_log` с email администратора.

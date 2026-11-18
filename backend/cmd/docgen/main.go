@@ -107,6 +107,7 @@ func main() {
 			AdminAuth:         queries,
 			AdminSessionTTL:   cfg.Admin.SessionTTL,
 			Projects:          queries,
+			Keys:              queries,
 			Documents:         documentService,
 			Journal:           queries,
 			JournalReader:     queries,

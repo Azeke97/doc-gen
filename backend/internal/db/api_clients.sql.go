@@ -80,7 +80,7 @@ type ListAPIClientsRow struct {
 	RevokedAt *time.Time
 }
 
-// Ключи для команды keygen -list: сам ключ не хранится, видно только начало.
+// Ключи для keygen -list и админки: сам ключ не хранится, видно только начало.
 func (q *Queries) ListAPIClients(ctx context.Context, project *string) ([]ListAPIClientsRow, error) {
 	rows, err := q.db.Query(ctx, listAPIClients, project)
 	if err != nil {
@@ -112,7 +112,7 @@ const revokeAPIClient = `-- name: RevokeAPIClient :one
 UPDATE api_clients
 SET revoked_at = now()
 WHERE id = $1 AND revoked_at IS NULL
-RETURNING id, name, project, key_prefix
+RETURNING id, name, project, key_prefix, created_at, revoked_at
 `
 
 type RevokeAPIClientRow struct {
@@ -120,6 +120,8 @@ type RevokeAPIClientRow struct {
 	Name      string
 	Project   string
 	KeyPrefix string
+	CreatedAt time.Time
+	RevokedAt *time.Time
 }
 
 // Отозванный ключ больше не принимается; строка остаётся, на неё ссылаются документы и журнал.
@@ -131,6 +133,8 @@ func (q *Queries) RevokeAPIClient(ctx context.Context, id uuid.UUID) (RevokeAPIC
 		&i.Name,
 		&i.Project,
 		&i.KeyPrefix,
+		&i.CreatedAt,
+		&i.RevokedAt,
 	)
 	return i, err
 }

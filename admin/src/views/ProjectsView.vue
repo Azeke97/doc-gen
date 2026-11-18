@@ -4,8 +4,11 @@ import { onMounted, reactive, ref } from 'vue'
 
 import { api, ApiError, type Project } from '../api'
 import { errorText, formatDateTime } from '../labels'
+import KeysDialog from './KeysDialog.vue'
 
 const projects = ref<Project[]>([])
+const keysOpen = ref(false)
+const keysProject = ref<Project | null>(null)
 const loading = ref(false)
 
 const dialog = ref(false)
@@ -36,6 +39,11 @@ function openCreate() {
   editing.value = null
   Object.assign(form, { code: '', name: '', retention_days: 365 })
   dialog.value = true
+}
+
+function openKeys(p: Project) {
+  keysProject.value = p
+  keysOpen.value = true
 }
 
 function openEdit(p: Project) {
@@ -86,8 +94,9 @@ onMounted(load)
       <el-table-column label="Создан" width="180">
         <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="" width="120" align="right">
+      <el-table-column label="" width="190" align="right">
         <template #default="{ row }">
+          <el-button link type="primary" @click="openKeys(row)">Ключи</el-button>
           <el-button link type="primary" @click="openEdit(row)">Изменить</el-button>
         </template>
       </el-table-column>
@@ -114,6 +123,8 @@ onMounted(load)
         <el-button type="primary" :loading="saving" @click="save">{{ editing ? 'Сохранить' : 'Создать' }}</el-button>
       </template>
     </el-dialog>
+
+    <KeysDialog v-model="keysOpen" :project="keysProject" />
   </div>
 </template>
 

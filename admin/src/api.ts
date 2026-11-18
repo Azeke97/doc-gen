@@ -16,6 +16,21 @@ export interface Project {
   created_at: string
 }
 
+/** API-ключ портала: сам ключ не хранится, видно только его начало. */
+export interface ApiKey {
+  id: string
+  name: string
+  project: string
+  key_prefix: string
+  created_at: string
+  revoked_at: string | null
+}
+
+/** Только что выданный ключ: key показывается один раз. */
+export interface IssuedKey extends ApiKey {
+  key: string
+}
+
 export type JournalStatus = 'created' | 'repeated' | 'rejected' | 'failed'
 
 export interface JournalEntry {
@@ -194,6 +209,10 @@ export const api = {
   createProject: (p: { code: string; name: string; retention_days: number }) => call<Project>('POST', '/projects', p),
   updateProject: (code: string, p: { name?: string; retention_days?: number }) =>
     call<Project>('PATCH', `/projects/${encodeURIComponent(code)}`, p),
+  keys: (project: string) => call<ApiKey[]>('GET', `/projects/${encodeURIComponent(project)}/keys`),
+  issueKey: (project: string, name: string) =>
+    call<IssuedKey>('POST', `/projects/${encodeURIComponent(project)}/keys`, { name }),
+  revokeKey: (id: string) => call<ApiKey>('POST', `/keys/${id}/revoke`),
 
   journal: (f: JournalFilter & { limit?: number }) => call<JournalPage>('GET', '/journal' + query(f)),
   journalEntry: (id: string) => call<JournalCard>('GET', `/journal/${id}`),
