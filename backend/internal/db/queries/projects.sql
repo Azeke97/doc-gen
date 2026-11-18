@@ -14,3 +14,9 @@ RETURNING *;
 -- name: ListProjects :many
 SELECT * FROM projects
 ORDER BY code;
+
+-- name: EnsureProject :execrows
+-- Создаёт проект, если его ещё нет: keygen выдаёт ключ новому порталу одной командой.
+INSERT INTO projects (code, name)
+VALUES (@code, @name)
+ON CONFLICT (code) DO NOTHING;

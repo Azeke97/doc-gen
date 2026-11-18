@@ -11,6 +11,7 @@ import (
 const (
 	codeUniqueViolation     = "23505"
 	codeForeignKeyViolation = "23503"
+	codeCheckViolation      = "23514"
 )
 
 // IsUniqueViolation сообщает, что запись нарушила UNIQUE (такая уже есть).
@@ -21,6 +22,11 @@ func IsUniqueViolation(err error) bool {
 // IsForeignKeyViolation сообщает, что запись ссылается на несуществующую строку.
 func IsForeignKeyViolation(err error) bool {
 	return hasCode(err, codeForeignKeyViolation)
+}
+
+// IsCheckViolation сообщает, что значение не прошло CHECK таблицы.
+func IsCheckViolation(err error) bool {
+	return hasCode(err, codeCheckViolation)
 }
 
 func hasCode(err error, code string) bool {

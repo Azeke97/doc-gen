@@ -1,6 +1,6 @@
 // Команда keygen управляет API-ключами порталов:
 //
-//	keygen -name=... -project=...   выпустить ключ (печатается один раз)
+//	keygen -project=... [-name=...] выпустить ключ (печатается один раз); проекта нет — создаётся
 //	keygen -list [-project=...]     список ключей: ID, начало ключа, портал, отозван ли
 //	keygen -revoke=<ID ключа>       отозвать ключ: портал с ним сразу перестаёт проходить
 package main
@@ -27,7 +27,7 @@ import (
 )
 
 func main() {
-	name := flag.String("name", "", "имя клиента для людей")
+	name := flag.String("name", "", "имя портала для людей (по умолчанию — код проекта)")
 	project := flag.String("project", "", "код проекта (портала), от имени которого ключ выпускает документы")
 	list := flag.Bool("list", false, "показать ключи (всех проектов или одного -project)")
 	revoke := flag.String("revoke", "", "ID ключа, который нужно отозвать (из -list)")
@@ -35,7 +35,7 @@ func main() {
 
 	switch {
 	case *list && *revoke != "",
-		!*list && *revoke == "" && (*name == "" || *project == ""):
+		!*list && *revoke == "" && *project == "":
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -60,11 +60,27 @@ func main() {
 	case *revoke != "":
 		revokeKey(ctx, q, *revoke)
 	default:
+		if *name == "" {
+			*name = *project
+		}
 		createKey(ctx, q, *name, *project)
 	}
 }
 
+// createKey выпускает ключ; проект создаётся, если его ещё нет (срок хранения — по умолчанию).
 func createKey(ctx context.Context, q *db.Queries, name, project string) {
+	created, err := q.EnsureProject(ctx, db.EnsureProjectParams{Code: project, Name: name})
+	if pgerr.IsCheckViolation(err) {
+		fmt.Fprintf(os.Stderr, "project code %q: use a-z, 0-9 and _, start with a letter, 2-50 characters\n", project)
+		os.Exit(2)
+	}
+	if err != nil {
+		fail("failed to create project", err)
+	}
+	if created > 0 {
+		fmt.Printf("Project %q created (retention 365 days, change it in the admin).\n", project)
+	}
+
 	key := apikey.Generate()
 	client, err := q.CreateAPIClient(ctx, db.CreateAPIClientParams{
 		Name:      name,
@@ -72,10 +88,6 @@ func createKey(ctx context.Context, q *db.Queries, name, project string) {
 		KeyHash:   apikey.Hash(key),
 		KeyPrefix: apikey.DisplayPrefix(key),
 	})
-	if pgerr.IsForeignKeyViolation(err) {
-		fmt.Fprintf(os.Stderr, "project %q does not exist, create it first\n", project)
-		os.Exit(1)
-	}
 	if err != nil {
 		fail("failed to create api client", err)
 	}

@@ -34,6 +34,26 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 	return i, err
 }
 
+const ensureProject = `-- name: EnsureProject :execrows
+INSERT INTO projects (code, name)
+VALUES ($1, $2)
+ON CONFLICT (code) DO NOTHING
+`
+
+type EnsureProjectParams struct {
+	Code string
+	Name string
+}
+
+// Создаёт проект, если его ещё нет: keygen выдаёт ключ новому порталу одной командой.
+func (q *Queries) EnsureProject(ctx context.Context, arg EnsureProjectParams) (int64, error) {
+	result, err := q.db.Exec(ctx, ensureProject, arg.Code, arg.Name)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listProjects = `-- name: ListProjects :many
 SELECT code, name, created_at, updated_at, retention_days FROM projects
 ORDER BY code
