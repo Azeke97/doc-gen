@@ -13,11 +13,11 @@ make dev                                         # всё сразу: .env, ко
 make key project=zakupki name="Портал закупок"   # ключ порталу (печатается один раз), проект создаётся сам
 ```
 
-Сервис — `http://localhost:8080`, админка — `http://localhost:8080/admin/` (локально без входа). Проекты и ключи можно вести и в админке: **Проекты** → **Ключи** (выдать, отозвать). Остановить контейнеры — `make down`, остальные команды — `make help`.
+Сервис — `http://localhost:8080`, админка — `http://localhost:8080/admin/` (локально без входа). Проекты и ключи можно вести и в админке: **Проекты** → **Ключи** (выдать, отозвать, удалить выданный по ошибке). Остановить контейнеры — `make down`, остальные команды — `make help`.
 
 ## Проверить в Postman
 
-Импортировать [examples/DocGen.postman_collection.json](examples/DocGen.postman_collection.json), во вкладке **Variables** коллекции указать `apiKey` и выполнять запросы 1–7 по порядку. Шаблоны и данные для них — в [examples/](examples): `opening_protocol` и `results_protocol` (`.docx` + `.json`), `opening_protocol_errors.json` — данные с ошибками. Если Postman не нашёл шаблон, выбрать файл в поле `template` (Body → form-data) или указать в Settings → General → Working directory папку `examples`.
+Коллекция, шаблоны протоколов и данные (в том числе с ошибками) — в [examples/](examples); там же 4 шага настройки Postman.
 
 ## Как портал выпускает документ
 
@@ -63,4 +63,4 @@ cd backend && DOCGEN_INTEGRATION=1 go test ./internal/golden -update
 
 ## Боевой стенд
 
-Локально и на тестовом стенде админка открыта без входа (`ADMIN_AUTH_DISABLED=true` в `.env.example`). На боевом — `ADMIN_AUTH_DISABLED=false` и учётки через `make admin-add email=... name="..."`: журнал показывает входные данные документов, а в админке выдаются ключи порталов. Выдача и отзыв ключей пишутся в `audit_log` с email администратора.
+Локально и на тестовом стенде админка открыта без входа (`ADMIN_AUTH_DISABLED=true` в `.env.example`). На боевом — `ADMIN_AUTH_DISABLED=false` и учётки через `make admin-add email=... name="..."`: журнал показывает входные данные документов, а в админке выдаются ключи порталов. Выдача, отзыв и удаление ключей пишутся в `audit_log` с email администратора.
